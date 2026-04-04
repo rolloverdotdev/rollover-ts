@@ -1,0 +1,28 @@
+{
+  "name": "@rolloverdotdev/client",
+  "version": "0.1.0",
+  "description": "Type-safe TypeScript SDK for the Rollover subscription billing API.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rolloverdotdev/rollover-ts.git",
+    "directory": "packages/client"
+  },
+  "keywords": ["rollover", "x402", "subscription", "billing", "usdc"],
+  "author": "Rollover <hello@rollover.dev>",
+  "license": "MIT",
+  "bugs": { "url": "https://github.com/rolloverdotdev/rollover-ts/issues" },
+  "homepage": "https://rollover.dev"
+}
