@@ -1,6 +1,178 @@
 {
   "components": {
     "schemas": {
+      "APIKey": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "key_prefix": {
+            "type": "string"
+          },
+          "last_used_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "mode": {
+            "enum": [
+              "test",
+              "live"
+            ],
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "org_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "revoked_at": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "key_prefix",
+          "mode"
+        ],
+        "type": "object"
+      },
+      "AnalyticsStats": {
+        "properties": {
+          "active_subs": {
+            "type": "integer"
+          },
+          "mrr": {
+            "type": "string"
+          },
+          "recent_activity": {
+            "items": {
+              "$ref": "#/components/schemas/RecentEvent"
+            },
+            "type": "array"
+          },
+          "top_features": {
+            "items": {
+              "$ref": "#/components/schemas/TopFeature"
+            },
+            "type": "array"
+          },
+          "total_revenue": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "Asset": {
+        "properties": {
+          "contract": {
+            "type": "string"
+          },
+          "decimals": {
+            "type": "integer"
+          },
+          "name": {
+            "type": "string"
+          },
+          "symbol": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "symbol",
+          "contract",
+          "decimals"
+        ],
+        "type": "object"
+      },
+      "CheckResult": {
+        "properties": {
+          "allowed": {
+            "type": "boolean"
+          },
+          "credit_balance": {
+            "type": "integer"
+          },
+          "credit_cost": {
+            "type": "integer"
+          },
+          "limit": {
+            "type": "integer"
+          },
+          "plan": {
+            "type": "string"
+          },
+          "remaining": {
+            "type": "integer"
+          },
+          "used": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "allowed"
+        ],
+        "type": "object"
+      },
+      "CreditBalance": {
+        "properties": {
+          "balance": {
+            "type": "integer"
+          },
+          "wallet": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "wallet",
+          "balance"
+        ],
+        "type": "object"
+      },
+      "CreditTransaction": {
+        "properties": {
+          "amount": {
+            "type": "integer"
+          },
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "mode": {
+            "type": "string"
+          },
+          "org_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "subscription_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "type": {
+            "type": "string"
+          },
+          "wallet_address": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "Error": {
         "properties": {
           "code": {
@@ -73,6 +245,10 @@
             "format": "uuid",
             "type": "string"
           },
+          "org_id": {
+            "format": "uuid",
+            "type": "string"
+          },
           "overage_amount": {
             "type": "string"
           },
@@ -107,10 +283,301 @@
         },
         "type": "object"
       },
+      "NetworkConfig": {
+        "properties": {
+          "assets": {
+            "items": {
+              "$ref": "#/components/schemas/Asset"
+            },
+            "type": "array"
+          },
+          "chain_id": {
+            "type": "string"
+          },
+          "facilitator_url": {
+            "type": "string"
+          },
+          "is_testnet": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "chain_id"
+        ],
+        "type": "object"
+      },
+      "OrgAnalytics": {
+        "properties": {
+          "features": {
+            "items": {
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "slug": {
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "plans": {
+            "items": {
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "slug": {
+                  "type": "string"
+                }
+              },
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "range": {
+            "properties": {
+              "days": {
+                "type": "integer"
+              },
+              "from": {
+                "type": "string"
+              },
+              "granularity": {
+                "type": "string"
+              },
+              "to": {
+                "type": "string"
+              }
+            },
+            "type": "object"
+          },
+          "series": {
+            "properties": {
+              "active_subs": {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              "billable_events": {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              "canceled": {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              "days": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "failed_renewals": {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              "mrr": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "new_subs": {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              "recurring_revenue": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "revenue_by_plan": {
+                "additionalProperties": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "type": "object"
+              },
+              "usage_by_feature": {
+                "additionalProperties": {
+                  "items": {
+                    "type": "integer"
+                  },
+                  "type": "array"
+                },
+                "type": "object"
+              }
+            },
+            "type": "object"
+          },
+          "summary": {
+            "properties": {
+              "active_subs": {
+                "type": "integer"
+              },
+              "active_subs_prev": {
+                "type": "integer"
+              },
+              "arpu": {
+                "type": "string"
+              },
+              "arpu_prev": {
+                "type": "string"
+              },
+              "billable_events": {
+                "type": "integer"
+              },
+              "billable_events_prev": {
+                "type": "integer"
+              },
+              "canceled": {
+                "type": "integer"
+              },
+              "canceled_prev": {
+                "type": "integer"
+              },
+              "failed_renewals": {
+                "type": "integer"
+              },
+              "failed_renewals_prev": {
+                "type": "integer"
+              },
+              "mrr": {
+                "type": "string"
+              },
+              "mrr_prev": {
+                "type": "string"
+              },
+              "new_subs": {
+                "type": "integer"
+              },
+              "new_subs_prev": {
+                "type": "integer"
+              },
+              "overage_revenue": {
+                "type": "string"
+              },
+              "overage_revenue_prev": {
+                "type": "string"
+              },
+              "recurring_revenue": {
+                "type": "string"
+              },
+              "recurring_revenue_prev": {
+                "type": "string"
+              },
+              "subscribers_at_limit": {
+                "type": "integer"
+              }
+            },
+            "type": "object"
+          }
+        },
+        "type": "object"
+      },
+      "OrgMode": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "facilitator_url": {
+            "type": "string"
+          },
+          "mode": {
+            "enum": [
+              "test",
+              "live"
+            ],
+            "type": "string"
+          },
+          "network": {
+            "type": "string"
+          },
+          "org_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "pay_to_address": {
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "usdc_contract": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "mode"
+        ],
+        "type": "object"
+      },
+      "Organization": {
+        "properties": {
+          "created_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "logo": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "webhook_url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "slug"
+        ],
+        "type": "object"
+      },
       "Plan": {
         "properties": {
+          "auto_assign": {
+            "type": "boolean"
+          },
           "billing_period": {
             "enum": [
+              "daily",
+              "weekly",
               "monthly",
               "yearly"
             ],
@@ -185,6 +652,24 @@
         ],
         "type": "object"
       },
+      "RecentEvent": {
+        "properties": {
+          "amount": {
+            "type": "string"
+          },
+          "feature_slug": {
+            "type": "string"
+          },
+          "recorded_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "wallet_address": {
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
       "Subscription": {
         "properties": {
           "cancel_at_end": {
@@ -197,6 +682,9 @@
           "id": {
             "format": "uuid",
             "type": "string"
+          },
+          "metadata": {
+            "type": "object"
           },
           "mode": {
             "type": "string"
@@ -241,6 +729,69 @@
           }
         },
         "type": "object"
+      },
+      "TopFeature": {
+        "properties": {
+          "feature_slug": {
+            "type": "string"
+          },
+          "total_used": {
+            "type": "integer"
+          }
+        },
+        "type": "object"
+      },
+      "TrackResult": {
+        "properties": {
+          "allowed": {
+            "type": "boolean"
+          },
+          "credit_balance": {
+            "type": "integer"
+          },
+          "remaining": {
+            "type": "integer"
+          },
+          "used": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "allowed",
+          "used",
+          "remaining"
+        ],
+        "type": "object"
+      },
+      "UsageEvent": {
+        "properties": {
+          "amount": {
+            "type": "string"
+          },
+          "feature_slug": {
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "org_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "recorded_at": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "subscription_id": {
+            "format": "uuid",
+            "type": "string"
+          },
+          "wallet_address": {
+            "type": "string"
+          }
+        },
+        "type": "object"
       }
     },
     "securitySchemes": {
@@ -271,6 +822,58 @@
   },
   "openapi": "3.0.3",
   "paths": {
+    "/healthz": {
+      "get": {
+        "operationId": "healthCheck",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "status": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "summary": "Health check",
+        "tags": [
+          "Public"
+        ]
+      }
+    },
+    "/v1/analytics": {
+      "get": {
+        "operationId": "getAnalyticsStats",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnalyticsStats"
+                }
+              }
+            },
+            "description": "Analytics stats"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get analytics stats",
+        "tags": [
+          "Analytics"
+        ]
+      }
+    },
     "/v1/auth/siwe": {
       "post": {
         "operationId": "signInWithWallet",
@@ -330,24 +933,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "properties": {
-                    "allowed": {
-                      "type": "boolean"
-                    },
-                    "limit": {
-                      "type": "integer"
-                    },
-                    "remaining": {
-                      "type": "integer"
-                    },
-                    "used": {
-                      "type": "integer"
-                    }
-                  },
-                  "required": [
-                    "allowed"
-                  ],
-                  "type": "object"
+                  "$ref": "#/components/schemas/CheckResult"
                 }
               }
             },
@@ -362,6 +948,174 @@
         "summary": "Check if a wallet can use a feature",
         "tags": [
           "Usage"
+        ]
+      }
+    },
+    "/v1/credits": {
+      "get": {
+        "operationId": "getCreditBalance",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "wallet",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreditBalance"
+                }
+              }
+            },
+            "description": "Credit balance"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get credit balance for a wallet",
+        "tags": [
+          "Credits"
+        ]
+      },
+      "post": {
+        "operationId": "grantCredits",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "amount": {
+                    "description": "Credit amount (1-100000000)",
+                    "maximum": 100000000,
+                    "minimum": 1,
+                    "type": "integer"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "expires_at": {
+                    "format": "date-time",
+                    "type": "string"
+                  },
+                  "wallet": {
+                    "description": "Wallet address (0x...)",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "wallet",
+                  "amount"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "balance": {
+                      "type": "integer"
+                    },
+                    "granted": {
+                      "type": "integer"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Credits granted"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Grant credits to a wallet",
+        "tags": [
+          "Credits"
+        ]
+      }
+    },
+    "/v1/credits/transactions": {
+      "get": {
+        "operationId": "listCreditTransactions",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "wallet",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "items": {
+                        "$ref": "#/components/schemas/CreditTransaction"
+                      },
+                      "type": "array"
+                    },
+                    "limit": {
+                      "type": "integer"
+                    },
+                    "offset": {
+                      "type": "integer"
+                    },
+                    "total": {
+                      "type": "integer"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Credit transactions"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "List credit transactions",
+        "tags": [
+          "Credits"
         ]
       }
     },
@@ -457,6 +1211,521 @@
         "summary": "List invoices",
         "tags": [
           "Invoices"
+        ]
+      }
+    },
+    "/v1/networks": {
+      "get": {
+        "operationId": "listNetworks",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/NetworkConfig"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Networks"
+          }
+        },
+        "summary": "List supported blockchain networks",
+        "tags": [
+          "Public"
+        ]
+      }
+    },
+    "/v1/organization": {
+      "delete": {
+        "operationId": "invalidateOrgCache",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "slug": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "slug"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "status": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Invalidated"
+          }
+        },
+        "security": [
+          {
+            "bearerJWT": []
+          }
+        ],
+        "summary": "Invalidate organization cache",
+        "tags": [
+          "Organization"
+        ]
+      },
+      "get": {
+        "operationId": "getOrganization",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Organization"
+                }
+              }
+            },
+            "description": "Organization"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get organization details",
+        "tags": [
+          "Organization"
+        ]
+      },
+      "put": {
+        "operationId": "updateOrganization",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "webhook_url": {
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Organization"
+                }
+              }
+            },
+            "description": "Updated organization"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Update organization",
+        "tags": [
+          "Organization"
+        ]
+      }
+    },
+    "/v1/organization/analytics": {
+      "get": {
+        "operationId": "getOrgAnalytics",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "mode",
+            "schema": {
+              "enum": [
+                "test",
+                "live"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "granularity",
+            "schema": {
+              "enum": [
+                "hourly",
+                "6h",
+                "daily",
+                "weekly"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrgAnalytics"
+                }
+              }
+            },
+            "description": "Organization analytics"
+          }
+        },
+        "security": [
+          {
+            "bearerJWT": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get detailed organization analytics",
+        "tags": [
+          "Analytics"
+        ]
+      }
+    },
+    "/v1/organization/api-key": {
+      "post": {
+        "operationId": "generateAPIKey",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "mode": {
+                    "enum": [
+                      "test",
+                      "live"
+                    ],
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "slug": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "slug",
+                  "mode"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "api_key": {
+                      "$ref": "#/components/schemas/APIKey"
+                    },
+                    "key": {
+                      "description": "Full API key (only shown once)",
+                      "type": "string"
+                    },
+                    "organization": {
+                      "$ref": "#/components/schemas/Organization"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Generated API key"
+          }
+        },
+        "security": [
+          {
+            "bearerJWT": []
+          }
+        ],
+        "summary": "Generate a new API key",
+        "tags": [
+          "Organization"
+        ]
+      }
+    },
+    "/v1/organization/api-keys": {
+      "get": {
+        "operationId": "listAPIKeys",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "mode",
+            "schema": {
+              "enum": [
+                "test",
+                "live"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/APIKey"
+                  },
+                  "type": "array"
+                }
+              }
+            },
+            "description": "API keys"
+          }
+        },
+        "security": [
+          {
+            "bearerJWT": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "List all active API keys",
+        "tags": [
+          "Organization"
+        ]
+      }
+    },
+    "/v1/organization/api-keys/{key_id}": {
+      "delete": {
+        "operationId": "revokeAPIKey",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "mode",
+            "schema": {
+              "enum": [
+                "test",
+                "live"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "key_id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "status": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Revoked"
+          }
+        },
+        "security": [
+          {
+            "bearerJWT": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Revoke an API key",
+        "tags": [
+          "Organization"
+        ]
+      }
+    },
+    "/v1/organization/mode": {
+      "get": {
+        "operationId": "getOrgMode",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "mode",
+            "schema": {
+              "enum": [
+                "test",
+                "live"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrgMode"
+                }
+              }
+            },
+            "description": "Mode config"
+          }
+        },
+        "security": [
+          {
+            "bearerJWT": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get mode configuration",
+        "tags": [
+          "Organization"
+        ]
+      },
+      "put": {
+        "operationId": "updateOrgMode",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "mode",
+            "schema": {
+              "enum": [
+                "test",
+                "live"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "network": {
+                    "type": "string"
+                  },
+                  "pay_to_address": {
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrgMode"
+                }
+              }
+            },
+            "description": "Updated mode config"
+          }
+        },
+        "security": [
+          {
+            "bearerJWT": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Update mode configuration",
+        "tags": [
+          "Organization"
         ]
       }
     },
@@ -567,7 +1836,50 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/Plan"
+                "properties": {
+                  "auto_assign": {
+                    "type": "boolean"
+                  },
+                  "billing_period": {
+                    "enum": [
+                      "daily",
+                      "weekly",
+                      "monthly",
+                      "yearly"
+                    ],
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "metadata": {
+                    "type": "object"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "price_usdc": {
+                    "type": "string"
+                  },
+                  "setup_fee_usdc": {
+                    "type": "string"
+                  },
+                  "slug": {
+                    "type": "string"
+                  },
+                  "sort_order": {
+                    "type": "integer"
+                  },
+                  "trial_days": {
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "slug",
+                  "name",
+                  "price_usdc"
+                ],
+                "type": "object"
               }
             }
           },
@@ -594,6 +1906,86 @@
           }
         ],
         "summary": "Create a plan",
+        "tags": [
+          "Plans"
+        ]
+      }
+    },
+    "/v1/plans/copy": {
+      "post": {
+        "operationId": "copyPlans",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "mode",
+            "schema": {
+              "enum": [
+                "test",
+                "live"
+              ],
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "target_mode": {
+                    "enum": [
+                      "test",
+                      "live"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "target_mode"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "copied": {
+                      "type": "integer"
+                    },
+                    "skipped": {
+                      "type": "integer"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Copy result"
+          }
+        },
+        "security": [
+          {
+            "bearerJWT": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Copy plans from one mode to another",
         "tags": [
           "Plans"
         ]
@@ -740,7 +2132,45 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/Plan"
+                "properties": {
+                  "auto_assign": {
+                    "type": "boolean"
+                  },
+                  "billing_period": {
+                    "enum": [
+                      "daily",
+                      "weekly",
+                      "monthly",
+                      "yearly"
+                    ],
+                    "type": "string"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "is_active": {
+                    "type": "boolean"
+                  },
+                  "metadata": {
+                    "type": "object"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "price_usdc": {
+                    "type": "string"
+                  },
+                  "setup_fee_usdc": {
+                    "type": "string"
+                  },
+                  "sort_order": {
+                    "type": "integer"
+                  },
+                  "trial_days": {
+                    "type": "integer"
+                  }
+                },
+                "type": "object"
               }
             }
           },
@@ -808,7 +2238,40 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/Feature"
+                "properties": {
+                  "credit_cost": {
+                    "type": "integer"
+                  },
+                  "feature_slug": {
+                    "type": "string"
+                  },
+                  "limit_amount": {
+                    "type": "integer"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "overage_price": {
+                    "type": "string"
+                  },
+                  "reset_period": {
+                    "enum": [
+                      "billing_cycle",
+                      "daily",
+                      "weekly",
+                      "monthly"
+                    ],
+                    "type": "string"
+                  },
+                  "weight": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "feature_slug",
+                  "name"
+                ],
+                "type": "object"
               }
             }
           },
@@ -835,6 +2298,165 @@
           }
         ],
         "summary": "Create a feature on a plan",
+        "tags": [
+          "Features"
+        ]
+      }
+    },
+    "/v1/plans/{slug}/features/{feature_slug}": {
+      "delete": {
+        "operationId": "deleteFeature",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "mode",
+            "schema": {
+              "enum": [
+                "test",
+                "live"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "feature_slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Deleted"
+          }
+        },
+        "security": [
+          {
+            "bearerJWT": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Delete a feature",
+        "tags": [
+          "Features"
+        ]
+      },
+      "put": {
+        "operationId": "updateFeature",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "mode",
+            "schema": {
+              "enum": [
+                "test",
+                "live"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "feature_slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "properties": {
+                  "credit_cost": {
+                    "type": "integer"
+                  },
+                  "limit_amount": {
+                    "type": "integer"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "overage_price": {
+                    "type": "string"
+                  },
+                  "reset_period": {
+                    "enum": [
+                      "billing_cycle",
+                      "daily",
+                      "weekly",
+                      "monthly"
+                    ],
+                    "type": "string"
+                  },
+                  "weight": {
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Feature"
+                }
+              }
+            },
+            "description": "Updated feature"
+          }
+        },
+        "security": [
+          {
+            "bearerJWT": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Update a feature",
         "tags": [
           "Features"
         ]
@@ -936,6 +2558,15 @@
       },
       "post": {
         "operationId": "subscribe",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -963,7 +2594,15 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Subscription"
+                  "properties": {
+                    "subscription": {
+                      "$ref": "#/components/schemas/Subscription"
+                    },
+                    "transaction": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
                 }
               }
             },
@@ -985,6 +2624,15 @@
       },
       "put": {
         "operationId": "switchPlan",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -1008,11 +2656,22 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Subscription"
+                  "properties": {
+                    "subscription": {
+                      "$ref": "#/components/schemas/Subscription"
+                    },
+                    "transaction": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
                 }
               }
             },
             "description": "Switched"
+          },
+          "402": {
+            "description": "Payment required"
           }
         },
         "security": [
@@ -1021,6 +2680,146 @@
           }
         ],
         "summary": "Switch to a different plan",
+        "tags": [
+          "Wallet"
+        ]
+      }
+    },
+    "/v1/subscription/credits": {
+      "get": {
+        "operationId": "getMyCredits",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "balance": {
+                      "type": "integer"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Credit balance"
+          }
+        },
+        "security": [
+          {
+            "walletJWT": []
+          }
+        ],
+        "summary": "Get my credit balance",
+        "tags": [
+          "Wallet"
+        ]
+      }
+    },
+    "/v1/subscription/invoices": {
+      "get": {
+        "operationId": "listMyInvoices",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "items": {
+                        "$ref": "#/components/schemas/Invoice"
+                      },
+                      "type": "array"
+                    },
+                    "limit": {
+                      "type": "integer"
+                    },
+                    "offset": {
+                      "type": "integer"
+                    },
+                    "total": {
+                      "type": "integer"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Invoices"
+          }
+        },
+        "security": [
+          {
+            "walletJWT": []
+          }
+        ],
+        "summary": "List my invoices",
+        "tags": [
+          "Wallet"
+        ]
+      }
+    },
+    "/v1/subscription/invoices/{id}/pay": {
+      "post": {
+        "operationId": "payInvoice",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "status": {
+                      "type": "string"
+                    },
+                    "transaction": {
+                      "type": "string"
+                    },
+                    "warning": {
+                      "type": "string"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Invoice paid"
+          },
+          "402": {
+            "description": "Payment required"
+          }
+        },
+        "security": [
+          {
+            "walletJWT": []
+          }
+        ],
+        "summary": "Pay an invoice",
         "tags": [
           "Wallet"
         ]
@@ -1229,9 +3028,132 @@
         ]
       }
     },
+    "/v1/subscriptions/{id}": {
+      "delete": {
+        "operationId": "cancelSubscriptionAdmin",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "mode",
+            "schema": {
+              "enum": [
+                "test",
+                "live"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Subscription"
+                }
+              }
+            },
+            "description": "Cancelled subscription"
+          }
+        },
+        "security": [
+          {
+            "bearerJWT": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Cancel a subscription (admin)",
+        "tags": [
+          "Subscriptions"
+        ]
+      },
+      "get": {
+        "operationId": "getSubscription",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "mode",
+            "schema": {
+              "enum": [
+                "test",
+                "live"
+              ],
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Subscription"
+                }
+              }
+            },
+            "description": "Subscription"
+          }
+        },
+        "security": [
+          {
+            "bearerJWT": []
+          },
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "Get a subscription by ID",
+        "tags": [
+          "Subscriptions"
+        ]
+      }
+    },
     "/v1/track": {
       "post": {
         "operationId": "trackUsage",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "Idempotency-Key",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "requestBody": {
           "content": {
             "application/json": {
@@ -1267,12 +3189,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "properties": {
-                    "ok": {
-                      "type": "boolean"
-                    }
-                  },
-                  "type": "object"
+                  "$ref": "#/components/schemas/TrackResult"
                 }
               }
             },
@@ -1285,6 +3202,93 @@
           }
         ],
         "summary": "Track feature usage",
+        "tags": [
+          "Usage"
+        ]
+      }
+    },
+    "/v1/usage": {
+      "get": {
+        "operationId": "listUsageEvents",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "wallet",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "feature",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "from",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "to",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "properties": {
+                    "data": {
+                      "items": {
+                        "$ref": "#/components/schemas/UsageEvent"
+                      },
+                      "type": "array"
+                    },
+                    "limit": {
+                      "type": "integer"
+                    },
+                    "offset": {
+                      "type": "integer"
+                    },
+                    "total": {
+                      "type": "integer"
+                    }
+                  },
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Usage events"
+          }
+        },
+        "security": [
+          {
+            "apiKey": []
+          }
+        ],
+        "summary": "List usage events",
         "tags": [
           "Usage"
         ]

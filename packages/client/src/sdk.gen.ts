@@ -2,7 +2,7 @@
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import type { ArchivePlanData, ArchivePlanResponses, CancelSubscriptionData, CancelSubscriptionResponses, CheckUsageData, CheckUsageResponses, CreateFeatureData, CreateFeatureResponses, CreatePlanData, CreatePlanResponses, CreateSubscriptionAdminData, CreateSubscriptionAdminResponses, GetMySubscriptionData, GetMySubscriptionResponses, GetPlanData, GetPlanResponses, ListInvoicesData, ListInvoicesResponses, ListPlansData, ListPlansResponses, ListPricingData, ListPricingResponses, ListSubscriptionsData, ListSubscriptionsResponses, ResumeSubscriptionData, ResumeSubscriptionResponses, SignInWithWalletData, SignInWithWalletResponses, SubscribeData, SubscribeErrors, SubscribeResponses, SwitchPlanData, SwitchPlanResponses, TrackUsageData, TrackUsageResponses, UpdatePlanData, UpdatePlanResponses } from './types.gen';
+import type { ArchivePlanData, ArchivePlanResponses, CancelSubscriptionAdminData, CancelSubscriptionAdminResponses, CancelSubscriptionData, CancelSubscriptionResponses, CheckUsageData, CheckUsageResponses, CopyPlansData, CopyPlansResponses, CreateFeatureData, CreateFeatureResponses, CreatePlanData, CreatePlanResponses, CreateSubscriptionAdminData, CreateSubscriptionAdminResponses, DeleteFeatureData, DeleteFeatureResponses, GenerateApiKeyData, GenerateApiKeyResponses, GetAnalyticsStatsData, GetAnalyticsStatsResponses, GetCreditBalanceData, GetCreditBalanceResponses, GetMyCreditsData, GetMyCreditsResponses, GetMySubscriptionData, GetMySubscriptionResponses, GetOrgAnalyticsData, GetOrgAnalyticsResponses, GetOrganizationData, GetOrganizationResponses, GetOrgModeData, GetOrgModeResponses, GetPlanData, GetPlanResponses, GetSubscriptionData, GetSubscriptionResponses, GrantCreditsData, GrantCreditsResponses, HealthCheckData, HealthCheckResponses, InvalidateOrgCacheData, InvalidateOrgCacheResponses, ListApiKeysData, ListApiKeysResponses, ListCreditTransactionsData, ListCreditTransactionsResponses, ListInvoicesData, ListInvoicesResponses, ListMyInvoicesData, ListMyInvoicesResponses, ListNetworksData, ListNetworksResponses, ListPlansData, ListPlansResponses, ListPricingData, ListPricingResponses, ListSubscriptionsData, ListSubscriptionsResponses, ListUsageEventsData, ListUsageEventsResponses, PayInvoiceData, PayInvoiceErrors, PayInvoiceResponses, ResumeSubscriptionData, ResumeSubscriptionResponses, RevokeApiKeyData, RevokeApiKeyResponses, SignInWithWalletData, SignInWithWalletResponses, SubscribeData, SubscribeErrors, SubscribeResponses, SwitchPlanData, SwitchPlanErrors, SwitchPlanResponses, TrackUsageData, TrackUsageResponses, UpdateFeatureData, UpdateFeatureResponses, UpdateOrganizationData, UpdateOrganizationResponses, UpdateOrgModeData, UpdateOrgModeResponses, UpdatePlanData, UpdatePlanResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -19,6 +19,20 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
 };
 
 /**
+ * Health check
+ */
+export const healthCheck = <ThrowOnError extends boolean = false>(options?: Options<HealthCheckData, ThrowOnError>) => (options?.client ?? client).get<HealthCheckResponses, unknown, ThrowOnError>({ url: '/healthz', ...options });
+
+/**
+ * Get analytics stats
+ */
+export const getAnalyticsStats = <ThrowOnError extends boolean = false>(options?: Options<GetAnalyticsStatsData, ThrowOnError>) => (options?.client ?? client).get<GetAnalyticsStatsResponses, unknown, ThrowOnError>({
+    security: [{ name: 'X-API-Key', type: 'apiKey' }],
+    url: '/v1/analytics',
+    ...options
+});
+
+/**
  * Authenticate with SIWE and get a session JWT
  */
 export const signInWithWallet = <ThrowOnError extends boolean = false>(options?: Options<SignInWithWalletData, ThrowOnError>) => (options?.client ?? client).post<SignInWithWalletResponses, unknown, ThrowOnError>({ url: '/v1/auth/siwe', ...options });
@@ -33,12 +47,145 @@ export const checkUsage = <ThrowOnError extends boolean = false>(options: Option
 });
 
 /**
+ * Get credit balance for a wallet
+ */
+export const getCreditBalance = <ThrowOnError extends boolean = false>(options: Options<GetCreditBalanceData, ThrowOnError>) => (options.client ?? client).get<GetCreditBalanceResponses, unknown, ThrowOnError>({
+    security: [{ name: 'X-API-Key', type: 'apiKey' }],
+    url: '/v1/credits',
+    ...options
+});
+
+/**
+ * Grant credits to a wallet
+ */
+export const grantCredits = <ThrowOnError extends boolean = false>(options: Options<GrantCreditsData, ThrowOnError>) => (options.client ?? client).post<GrantCreditsResponses, unknown, ThrowOnError>({
+    security: [{ name: 'X-API-Key', type: 'apiKey' }],
+    url: '/v1/credits',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * List credit transactions
+ */
+export const listCreditTransactions = <ThrowOnError extends boolean = false>(options: Options<ListCreditTransactionsData, ThrowOnError>) => (options.client ?? client).get<ListCreditTransactionsResponses, unknown, ThrowOnError>({
+    security: [{ name: 'X-API-Key', type: 'apiKey' }],
+    url: '/v1/credits/transactions',
+    ...options
+});
+
+/**
  * List invoices
  */
 export const listInvoices = <ThrowOnError extends boolean = false>(options: Options<ListInvoicesData, ThrowOnError>) => (options.client ?? client).get<ListInvoicesResponses, unknown, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, { name: 'X-API-Key', type: 'apiKey' }],
     url: '/v1/invoices',
     ...options
+});
+
+/**
+ * List supported blockchain networks
+ */
+export const listNetworks = <ThrowOnError extends boolean = false>(options?: Options<ListNetworksData, ThrowOnError>) => (options?.client ?? client).get<ListNetworksResponses, unknown, ThrowOnError>({ url: '/v1/networks', ...options });
+
+/**
+ * Invalidate organization cache
+ */
+export const invalidateOrgCache = <ThrowOnError extends boolean = false>(options: Options<InvalidateOrgCacheData, ThrowOnError>) => (options.client ?? client).delete<InvalidateOrgCacheResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/v1/organization',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Get organization details
+ */
+export const getOrganization = <ThrowOnError extends boolean = false>(options?: Options<GetOrganizationData, ThrowOnError>) => (options?.client ?? client).get<GetOrganizationResponses, unknown, ThrowOnError>({
+    security: [{ name: 'X-API-Key', type: 'apiKey' }],
+    url: '/v1/organization',
+    ...options
+});
+
+/**
+ * Update organization
+ */
+export const updateOrganization = <ThrowOnError extends boolean = false>(options: Options<UpdateOrganizationData, ThrowOnError>) => (options.client ?? client).put<UpdateOrganizationResponses, unknown, ThrowOnError>({
+    security: [{ name: 'X-API-Key', type: 'apiKey' }],
+    url: '/v1/organization',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Get detailed organization analytics
+ */
+export const getOrgAnalytics = <ThrowOnError extends boolean = false>(options: Options<GetOrgAnalyticsData, ThrowOnError>) => (options.client ?? client).get<GetOrgAnalyticsResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, { name: 'X-API-Key', type: 'apiKey' }],
+    url: '/v1/organization/analytics',
+    ...options
+});
+
+/**
+ * Generate a new API key
+ */
+export const generateApiKey = <ThrowOnError extends boolean = false>(options: Options<GenerateApiKeyData, ThrowOnError>) => (options.client ?? client).post<GenerateApiKeyResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/v1/organization/api-key',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * List all active API keys
+ */
+export const listApiKeys = <ThrowOnError extends boolean = false>(options: Options<ListApiKeysData, ThrowOnError>) => (options.client ?? client).get<ListApiKeysResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, { name: 'X-API-Key', type: 'apiKey' }],
+    url: '/v1/organization/api-keys',
+    ...options
+});
+
+/**
+ * Revoke an API key
+ */
+export const revokeApiKey = <ThrowOnError extends boolean = false>(options: Options<RevokeApiKeyData, ThrowOnError>) => (options.client ?? client).delete<RevokeApiKeyResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, { name: 'X-API-Key', type: 'apiKey' }],
+    url: '/v1/organization/api-keys/{key_id}',
+    ...options
+});
+
+/**
+ * Get mode configuration
+ */
+export const getOrgMode = <ThrowOnError extends boolean = false>(options: Options<GetOrgModeData, ThrowOnError>) => (options.client ?? client).get<GetOrgModeResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, { name: 'X-API-Key', type: 'apiKey' }],
+    url: '/v1/organization/mode',
+    ...options
+});
+
+/**
+ * Update mode configuration
+ */
+export const updateOrgMode = <ThrowOnError extends boolean = false>(options: Options<UpdateOrgModeData, ThrowOnError>) => (options.client ?? client).put<UpdateOrgModeResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, { name: 'X-API-Key', type: 'apiKey' }],
+    url: '/v1/organization/mode',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
 });
 
 /**
@@ -56,6 +203,19 @@ export const listPlans = <ThrowOnError extends boolean = false>(options: Options
 export const createPlan = <ThrowOnError extends boolean = false>(options: Options<CreatePlanData, ThrowOnError>) => (options.client ?? client).post<CreatePlanResponses, unknown, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }, { name: 'X-API-Key', type: 'apiKey' }],
     url: '/v1/plans',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Copy plans from one mode to another
+ */
+export const copyPlans = <ThrowOnError extends boolean = false>(options: Options<CopyPlansData, ThrowOnError>) => (options.client ?? client).post<CopyPlansResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, { name: 'X-API-Key', type: 'apiKey' }],
+    url: '/v1/plans/copy',
     ...options,
     headers: {
         'Content-Type': 'application/json',
@@ -108,6 +268,28 @@ export const createFeature = <ThrowOnError extends boolean = false>(options: Opt
 });
 
 /**
+ * Delete a feature
+ */
+export const deleteFeature = <ThrowOnError extends boolean = false>(options: Options<DeleteFeatureData, ThrowOnError>) => (options.client ?? client).delete<DeleteFeatureResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, { name: 'X-API-Key', type: 'apiKey' }],
+    url: '/v1/plans/{slug}/features/{feature_slug}',
+    ...options
+});
+
+/**
+ * Update a feature
+ */
+export const updateFeature = <ThrowOnError extends boolean = false>(options: Options<UpdateFeatureData, ThrowOnError>) => (options.client ?? client).put<UpdateFeatureResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, { name: 'X-API-Key', type: 'apiKey' }],
+    url: '/v1/plans/{slug}/features/{feature_slug}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
  * List active plans for an organization
  */
 export const listPricing = <ThrowOnError extends boolean = false>(options: Options<ListPricingData, ThrowOnError>) => (options.client ?? client).get<ListPricingResponses, unknown, ThrowOnError>({ url: '/v1/pricing/{org_slug}', ...options });
@@ -146,7 +328,7 @@ export const subscribe = <ThrowOnError extends boolean = false>(options: Options
 /**
  * Switch to a different plan
  */
-export const switchPlan = <ThrowOnError extends boolean = false>(options: Options<SwitchPlanData, ThrowOnError>) => (options.client ?? client).put<SwitchPlanResponses, unknown, ThrowOnError>({
+export const switchPlan = <ThrowOnError extends boolean = false>(options: Options<SwitchPlanData, ThrowOnError>) => (options.client ?? client).put<SwitchPlanResponses, SwitchPlanErrors, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/v1/subscription',
     ...options,
@@ -154,6 +336,33 @@ export const switchPlan = <ThrowOnError extends boolean = false>(options: Option
         'Content-Type': 'application/json',
         ...options.headers
     }
+});
+
+/**
+ * Get my credit balance
+ */
+export const getMyCredits = <ThrowOnError extends boolean = false>(options?: Options<GetMyCreditsData, ThrowOnError>) => (options?.client ?? client).get<GetMyCreditsResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/v1/subscription/credits',
+    ...options
+});
+
+/**
+ * List my invoices
+ */
+export const listMyInvoices = <ThrowOnError extends boolean = false>(options?: Options<ListMyInvoicesData, ThrowOnError>) => (options?.client ?? client).get<ListMyInvoicesResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/v1/subscription/invoices',
+    ...options
+});
+
+/**
+ * Pay an invoice
+ */
+export const payInvoice = <ThrowOnError extends boolean = false>(options: Options<PayInvoiceData, ThrowOnError>) => (options.client ?? client).post<PayInvoiceResponses, PayInvoiceErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/v1/subscription/invoices/{id}/pay',
+    ...options
 });
 
 /**
@@ -188,6 +397,24 @@ export const createSubscriptionAdmin = <ThrowOnError extends boolean = false>(op
 });
 
 /**
+ * Cancel a subscription (admin)
+ */
+export const cancelSubscriptionAdmin = <ThrowOnError extends boolean = false>(options: Options<CancelSubscriptionAdminData, ThrowOnError>) => (options.client ?? client).delete<CancelSubscriptionAdminResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, { name: 'X-API-Key', type: 'apiKey' }],
+    url: '/v1/subscriptions/{id}',
+    ...options
+});
+
+/**
+ * Get a subscription by ID
+ */
+export const getSubscription = <ThrowOnError extends boolean = false>(options: Options<GetSubscriptionData, ThrowOnError>) => (options.client ?? client).get<GetSubscriptionResponses, unknown, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }, { name: 'X-API-Key', type: 'apiKey' }],
+    url: '/v1/subscriptions/{id}',
+    ...options
+});
+
+/**
  * Track feature usage
  */
 export const trackUsage = <ThrowOnError extends boolean = false>(options: Options<TrackUsageData, ThrowOnError>) => (options.client ?? client).post<TrackUsageResponses, unknown, ThrowOnError>({
@@ -198,4 +425,13 @@ export const trackUsage = <ThrowOnError extends boolean = false>(options: Option
         'Content-Type': 'application/json',
         ...options.headers
     }
+});
+
+/**
+ * List usage events
+ */
+export const listUsageEvents = <ThrowOnError extends boolean = false>(options?: Options<ListUsageEventsData, ThrowOnError>) => (options?.client ?? client).get<ListUsageEventsResponses, unknown, ThrowOnError>({
+    security: [{ name: 'X-API-Key', type: 'apiKey' }],
+    url: '/v1/usage',
+    ...options
 });

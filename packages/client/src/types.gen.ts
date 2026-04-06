@@ -4,6 +4,59 @@ export type ClientOptions = {
     baseUrl: 'http://localhost:9000' | 'https://api.rollover.dev' | (string & {});
 };
 
+export type ApiKey = {
+    created_at?: string;
+    id: string;
+    key_prefix: string;
+    last_used_at?: string;
+    mode: 'test' | 'live';
+    name: string;
+    org_id?: string;
+    revoked_at?: string;
+};
+
+export type AnalyticsStats = {
+    active_subs?: number;
+    mrr?: string;
+    recent_activity?: Array<RecentEvent>;
+    top_features?: Array<TopFeature>;
+    total_revenue?: string;
+};
+
+export type Asset = {
+    contract: string;
+    decimals: number;
+    name?: string;
+    symbol: string;
+};
+
+export type CheckResult = {
+    allowed: boolean;
+    credit_balance?: number;
+    credit_cost?: number;
+    limit?: number;
+    plan?: string;
+    remaining?: number;
+    used?: number;
+};
+
+export type CreditBalance = {
+    balance: number;
+    wallet: string;
+};
+
+export type CreditTransaction = {
+    amount?: number;
+    created_at?: string;
+    description?: string;
+    id?: string;
+    mode?: string;
+    org_id?: string;
+    subscription_id?: string;
+    type?: string;
+    wallet_address?: string;
+};
+
 export type Error = {
     code: string;
     message: string;
@@ -25,6 +78,7 @@ export type Invoice = {
     base_amount?: string;
     created_at?: string;
     id?: string;
+    org_id?: string;
     overage_amount?: string;
     period_end?: string;
     period_start?: string;
@@ -36,8 +90,93 @@ export type Invoice = {
     wallet_address?: string;
 };
 
+export type NetworkConfig = {
+    assets?: Array<Asset>;
+    chain_id: string;
+    facilitator_url?: string;
+    is_testnet?: boolean;
+    name: string;
+};
+
+export type OrgAnalytics = {
+    features?: Array<{
+        name?: string;
+        slug?: string;
+    }>;
+    plans?: Array<{
+        id?: string;
+        name?: string;
+        slug?: string;
+    }>;
+    range?: {
+        days?: number;
+        from?: string;
+        granularity?: string;
+        to?: string;
+    };
+    series?: {
+        active_subs?: Array<number>;
+        billable_events?: Array<number>;
+        canceled?: Array<number>;
+        days?: Array<string>;
+        failed_renewals?: Array<number>;
+        mrr?: Array<string>;
+        new_subs?: Array<number>;
+        recurring_revenue?: Array<string>;
+        revenue_by_plan?: {
+            [key: string]: Array<string>;
+        };
+        usage_by_feature?: {
+            [key: string]: Array<number>;
+        };
+    };
+    summary?: {
+        active_subs?: number;
+        active_subs_prev?: number;
+        arpu?: string;
+        arpu_prev?: string;
+        billable_events?: number;
+        billable_events_prev?: number;
+        canceled?: number;
+        canceled_prev?: number;
+        failed_renewals?: number;
+        failed_renewals_prev?: number;
+        mrr?: string;
+        mrr_prev?: string;
+        new_subs?: number;
+        new_subs_prev?: number;
+        overage_revenue?: string;
+        overage_revenue_prev?: string;
+        recurring_revenue?: string;
+        recurring_revenue_prev?: string;
+        subscribers_at_limit?: number;
+    };
+};
+
+export type OrgMode = {
+    created_at?: string;
+    facilitator_url?: string;
+    mode: 'test' | 'live';
+    network?: string;
+    org_id?: string;
+    pay_to_address?: string;
+    updated_at?: string;
+    usdc_contract?: string;
+};
+
+export type Organization = {
+    created_at?: string;
+    id: string;
+    logo?: string;
+    name: string;
+    slug: string;
+    updated_at?: string;
+    webhook_url?: string;
+};
+
 export type Plan = {
-    billing_period: 'monthly' | 'yearly';
+    auto_assign?: boolean;
+    billing_period: 'daily' | 'weekly' | 'monthly' | 'yearly';
     created_at?: string;
     description?: string;
     features?: Array<Feature>;
@@ -58,10 +197,20 @@ export type Plan = {
     updated_at?: string;
 };
 
+export type RecentEvent = {
+    amount?: string;
+    feature_slug?: string;
+    recorded_at?: string;
+    wallet_address?: string;
+};
+
 export type Subscription = {
     cancel_at_end?: boolean;
     created_at?: string;
     id?: string;
+    metadata?: {
+        [key: string]: unknown;
+    };
     mode?: string;
     org_id?: string;
     period_end?: string;
@@ -73,6 +222,62 @@ export type Subscription = {
     updated_at?: string;
     wallet_address?: string;
 };
+
+export type TopFeature = {
+    feature_slug?: string;
+    total_used?: number;
+};
+
+export type TrackResult = {
+    allowed: boolean;
+    credit_balance?: number;
+    remaining: number;
+    used: number;
+};
+
+export type UsageEvent = {
+    amount?: string;
+    feature_slug?: string;
+    id?: string;
+    org_id?: string;
+    recorded_at?: string;
+    subscription_id?: string;
+    wallet_address?: string;
+};
+
+export type HealthCheckData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/healthz';
+};
+
+export type HealthCheckResponses = {
+    /**
+     * OK
+     */
+    200: {
+        status?: string;
+    };
+};
+
+export type HealthCheckResponse = HealthCheckResponses[keyof HealthCheckResponses];
+
+export type GetAnalyticsStatsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/v1/analytics';
+};
+
+export type GetAnalyticsStatsResponses = {
+    /**
+     * Analytics stats
+     */
+    200: AnalyticsStats;
+};
+
+export type GetAnalyticsStatsResponse = GetAnalyticsStatsResponses[keyof GetAnalyticsStatsResponses];
 
 export type SignInWithWalletData = {
     body?: never;
@@ -108,15 +313,83 @@ export type CheckUsageResponses = {
     /**
      * Usage check result
      */
-    200: {
-        allowed: boolean;
-        limit?: number;
-        remaining?: number;
-        used?: number;
-    };
+    200: CheckResult;
 };
 
 export type CheckUsageResponse = CheckUsageResponses[keyof CheckUsageResponses];
+
+export type GetCreditBalanceData = {
+    body?: never;
+    path?: never;
+    query: {
+        wallet: string;
+    };
+    url: '/v1/credits';
+};
+
+export type GetCreditBalanceResponses = {
+    /**
+     * Credit balance
+     */
+    200: CreditBalance;
+};
+
+export type GetCreditBalanceResponse = GetCreditBalanceResponses[keyof GetCreditBalanceResponses];
+
+export type GrantCreditsData = {
+    body: {
+        /**
+         * Credit amount (1-100000000)
+         */
+        amount: number;
+        description?: string;
+        expires_at?: string;
+        /**
+         * Wallet address (0x...)
+         */
+        wallet: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/v1/credits';
+};
+
+export type GrantCreditsResponses = {
+    /**
+     * Credits granted
+     */
+    200: {
+        balance?: number;
+        granted?: number;
+    };
+};
+
+export type GrantCreditsResponse = GrantCreditsResponses[keyof GrantCreditsResponses];
+
+export type ListCreditTransactionsData = {
+    body?: never;
+    path?: never;
+    query: {
+        wallet: string;
+        limit?: number;
+        offset?: number;
+    };
+    url: '/v1/credits/transactions';
+};
+
+export type ListCreditTransactionsResponses = {
+    /**
+     * Credit transactions
+     */
+    200: {
+        data?: Array<CreditTransaction>;
+        limit?: number;
+        offset?: number;
+        total?: number;
+    };
+};
+
+export type ListCreditTransactionsResponse = ListCreditTransactionsResponses[keyof ListCreditTransactionsResponses];
 
 export type ListInvoicesData = {
     body?: never;
@@ -146,6 +419,209 @@ export type ListInvoicesResponses = {
 
 export type ListInvoicesResponse = ListInvoicesResponses[keyof ListInvoicesResponses];
 
+export type ListNetworksData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/v1/networks';
+};
+
+export type ListNetworksResponses = {
+    /**
+     * Networks
+     */
+    200: Array<NetworkConfig>;
+};
+
+export type ListNetworksResponse = ListNetworksResponses[keyof ListNetworksResponses];
+
+export type InvalidateOrgCacheData = {
+    body: {
+        slug: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/v1/organization';
+};
+
+export type InvalidateOrgCacheResponses = {
+    /**
+     * Invalidated
+     */
+    200: {
+        status?: string;
+    };
+};
+
+export type InvalidateOrgCacheResponse = InvalidateOrgCacheResponses[keyof InvalidateOrgCacheResponses];
+
+export type GetOrganizationData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/v1/organization';
+};
+
+export type GetOrganizationResponses = {
+    /**
+     * Organization
+     */
+    200: Organization;
+};
+
+export type GetOrganizationResponse = GetOrganizationResponses[keyof GetOrganizationResponses];
+
+export type UpdateOrganizationData = {
+    body: {
+        name?: string;
+        webhook_url?: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/v1/organization';
+};
+
+export type UpdateOrganizationResponses = {
+    /**
+     * Updated organization
+     */
+    200: Organization;
+};
+
+export type UpdateOrganizationResponse = UpdateOrganizationResponses[keyof UpdateOrganizationResponses];
+
+export type GetOrgAnalyticsData = {
+    body?: never;
+    path?: never;
+    query: {
+        slug: string;
+        mode?: 'test' | 'live';
+        from?: string;
+        to?: string;
+        granularity?: 'hourly' | '6h' | 'daily' | 'weekly';
+    };
+    url: '/v1/organization/analytics';
+};
+
+export type GetOrgAnalyticsResponses = {
+    /**
+     * Organization analytics
+     */
+    200: OrgAnalytics;
+};
+
+export type GetOrgAnalyticsResponse = GetOrgAnalyticsResponses[keyof GetOrgAnalyticsResponses];
+
+export type GenerateApiKeyData = {
+    body: {
+        mode: 'test' | 'live';
+        name?: string;
+        slug: string;
+    };
+    path?: never;
+    query?: never;
+    url: '/v1/organization/api-key';
+};
+
+export type GenerateApiKeyResponses = {
+    /**
+     * Generated API key
+     */
+    201: {
+        api_key?: ApiKey;
+        /**
+         * Full API key (only shown once)
+         */
+        key?: string;
+        organization?: Organization;
+    };
+};
+
+export type GenerateApiKeyResponse = GenerateApiKeyResponses[keyof GenerateApiKeyResponses];
+
+export type ListApiKeysData = {
+    body?: never;
+    path?: never;
+    query: {
+        slug: string;
+        mode?: 'test' | 'live';
+    };
+    url: '/v1/organization/api-keys';
+};
+
+export type ListApiKeysResponses = {
+    /**
+     * API keys
+     */
+    200: Array<ApiKey>;
+};
+
+export type ListApiKeysResponse = ListApiKeysResponses[keyof ListApiKeysResponses];
+
+export type RevokeApiKeyData = {
+    body?: never;
+    path: {
+        key_id: string;
+    };
+    query: {
+        slug: string;
+        mode?: 'test' | 'live';
+    };
+    url: '/v1/organization/api-keys/{key_id}';
+};
+
+export type RevokeApiKeyResponses = {
+    /**
+     * Revoked
+     */
+    200: {
+        status?: string;
+    };
+};
+
+export type RevokeApiKeyResponse = RevokeApiKeyResponses[keyof RevokeApiKeyResponses];
+
+export type GetOrgModeData = {
+    body?: never;
+    path?: never;
+    query: {
+        slug: string;
+        mode?: 'test' | 'live';
+    };
+    url: '/v1/organization/mode';
+};
+
+export type GetOrgModeResponses = {
+    /**
+     * Mode config
+     */
+    200: OrgMode;
+};
+
+export type GetOrgModeResponse = GetOrgModeResponses[keyof GetOrgModeResponses];
+
+export type UpdateOrgModeData = {
+    body: {
+        network?: string;
+        pay_to_address?: string;
+    };
+    path?: never;
+    query: {
+        slug: string;
+        mode?: 'test' | 'live';
+    };
+    url: '/v1/organization/mode';
+};
+
+export type UpdateOrgModeResponses = {
+    /**
+     * Updated mode config
+     */
+    200: OrgMode;
+};
+
+export type UpdateOrgModeResponse = UpdateOrgModeResponses[keyof UpdateOrgModeResponses];
+
 export type ListPlansData = {
     body?: never;
     path?: never;
@@ -173,7 +649,20 @@ export type ListPlansResponses = {
 export type ListPlansResponse = ListPlansResponses[keyof ListPlansResponses];
 
 export type CreatePlanData = {
-    body: Plan;
+    body: {
+        auto_assign?: boolean;
+        billing_period?: 'daily' | 'weekly' | 'monthly' | 'yearly';
+        description?: string;
+        metadata?: {
+            [key: string]: unknown;
+        };
+        name: string;
+        price_usdc: string;
+        setup_fee_usdc?: string;
+        slug: string;
+        sort_order?: number;
+        trial_days?: number;
+    };
     path?: never;
     query: {
         slug: string;
@@ -190,6 +679,30 @@ export type CreatePlanResponses = {
 };
 
 export type CreatePlanResponse = CreatePlanResponses[keyof CreatePlanResponses];
+
+export type CopyPlansData = {
+    body: {
+        target_mode: 'test' | 'live';
+    };
+    path?: never;
+    query: {
+        slug: string;
+        mode?: 'test' | 'live';
+    };
+    url: '/v1/plans/copy';
+};
+
+export type CopyPlansResponses = {
+    /**
+     * Copy result
+     */
+    200: {
+        copied?: number;
+        skipped?: number;
+    };
+};
+
+export type CopyPlansResponse = CopyPlansResponses[keyof CopyPlansResponses];
 
 export type ArchivePlanData = {
     body?: never;
@@ -234,7 +747,20 @@ export type GetPlanResponses = {
 export type GetPlanResponse = GetPlanResponses[keyof GetPlanResponses];
 
 export type UpdatePlanData = {
-    body: Plan;
+    body: {
+        auto_assign?: boolean;
+        billing_period?: 'daily' | 'weekly' | 'monthly' | 'yearly';
+        description?: string;
+        is_active?: boolean;
+        metadata?: {
+            [key: string]: unknown;
+        };
+        name?: string;
+        price_usdc?: string;
+        setup_fee_usdc?: string;
+        sort_order?: number;
+        trial_days?: number;
+    };
     path: {
         slug: string;
     };
@@ -255,7 +781,15 @@ export type UpdatePlanResponses = {
 export type UpdatePlanResponse = UpdatePlanResponses[keyof UpdatePlanResponses];
 
 export type CreateFeatureData = {
-    body: Feature;
+    body: {
+        credit_cost?: number;
+        feature_slug: string;
+        limit_amount?: number;
+        name: string;
+        overage_price?: string;
+        reset_period?: 'billing_cycle' | 'daily' | 'weekly' | 'monthly';
+        weight?: string;
+    };
     path: {
         slug: string;
     };
@@ -274,6 +808,57 @@ export type CreateFeatureResponses = {
 };
 
 export type CreateFeatureResponse = CreateFeatureResponses[keyof CreateFeatureResponses];
+
+export type DeleteFeatureData = {
+    body?: never;
+    path: {
+        slug: string;
+        feature_slug: string;
+    };
+    query: {
+        slug: string;
+        mode?: 'test' | 'live';
+    };
+    url: '/v1/plans/{slug}/features/{feature_slug}';
+};
+
+export type DeleteFeatureResponses = {
+    /**
+     * Deleted
+     */
+    204: void;
+};
+
+export type DeleteFeatureResponse = DeleteFeatureResponses[keyof DeleteFeatureResponses];
+
+export type UpdateFeatureData = {
+    body: {
+        credit_cost?: number;
+        limit_amount?: number;
+        name?: string;
+        overage_price?: string;
+        reset_period?: 'billing_cycle' | 'daily' | 'weekly' | 'monthly';
+        weight?: string;
+    };
+    path: {
+        slug: string;
+        feature_slug: string;
+    };
+    query: {
+        slug: string;
+        mode?: 'test' | 'live';
+    };
+    url: '/v1/plans/{slug}/features/{feature_slug}';
+};
+
+export type UpdateFeatureResponses = {
+    /**
+     * Updated feature
+     */
+    200: Feature;
+};
+
+export type UpdateFeatureResponse = UpdateFeatureResponses[keyof UpdateFeatureResponses];
 
 export type ListPricingData = {
     body?: never;
@@ -332,6 +917,9 @@ export type SubscribeData = {
         org_slug: string;
         plan_slug: string;
     };
+    headers?: {
+        'Idempotency-Key'?: string;
+    };
     path?: never;
     query?: never;
     url: '/v1/subscription';
@@ -348,7 +936,10 @@ export type SubscribeResponses = {
     /**
      * Subscribed
      */
-    201: Subscription;
+    201: {
+        subscription?: Subscription;
+        transaction?: string;
+    };
 };
 
 export type SubscribeResponse = SubscribeResponses[keyof SubscribeResponses];
@@ -357,19 +948,103 @@ export type SwitchPlanData = {
     body: {
         plan_slug: string;
     };
+    headers?: {
+        'Idempotency-Key'?: string;
+    };
     path?: never;
     query?: never;
     url: '/v1/subscription';
+};
+
+export type SwitchPlanErrors = {
+    /**
+     * Payment required
+     */
+    402: unknown;
 };
 
 export type SwitchPlanResponses = {
     /**
      * Switched
      */
-    200: Subscription;
+    200: {
+        subscription?: Subscription;
+        transaction?: string;
+    };
 };
 
 export type SwitchPlanResponse = SwitchPlanResponses[keyof SwitchPlanResponses];
+
+export type GetMyCreditsData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/v1/subscription/credits';
+};
+
+export type GetMyCreditsResponses = {
+    /**
+     * Credit balance
+     */
+    200: {
+        balance?: number;
+    };
+};
+
+export type GetMyCreditsResponse = GetMyCreditsResponses[keyof GetMyCreditsResponses];
+
+export type ListMyInvoicesData = {
+    body?: never;
+    path?: never;
+    query?: {
+        limit?: number;
+        offset?: number;
+    };
+    url: '/v1/subscription/invoices';
+};
+
+export type ListMyInvoicesResponses = {
+    /**
+     * Invoices
+     */
+    200: {
+        data?: Array<Invoice>;
+        limit?: number;
+        offset?: number;
+        total?: number;
+    };
+};
+
+export type ListMyInvoicesResponse = ListMyInvoicesResponses[keyof ListMyInvoicesResponses];
+
+export type PayInvoiceData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query?: never;
+    url: '/v1/subscription/invoices/{id}/pay';
+};
+
+export type PayInvoiceErrors = {
+    /**
+     * Payment required
+     */
+    402: unknown;
+};
+
+export type PayInvoiceResponses = {
+    /**
+     * Invoice paid
+     */
+    200: {
+        status?: string;
+        transaction?: string;
+        warning?: string;
+    };
+};
+
+export type PayInvoiceResponse = PayInvoiceResponses[keyof PayInvoiceResponses];
 
 export type ResumeSubscriptionData = {
     body?: never;
@@ -438,6 +1113,48 @@ export type CreateSubscriptionAdminResponses = {
 
 export type CreateSubscriptionAdminResponse = CreateSubscriptionAdminResponses[keyof CreateSubscriptionAdminResponses];
 
+export type CancelSubscriptionAdminData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query: {
+        slug: string;
+        mode?: 'test' | 'live';
+    };
+    url: '/v1/subscriptions/{id}';
+};
+
+export type CancelSubscriptionAdminResponses = {
+    /**
+     * Cancelled subscription
+     */
+    200: Subscription;
+};
+
+export type CancelSubscriptionAdminResponse = CancelSubscriptionAdminResponses[keyof CancelSubscriptionAdminResponses];
+
+export type GetSubscriptionData = {
+    body?: never;
+    path: {
+        id: string;
+    };
+    query: {
+        slug: string;
+        mode?: 'test' | 'live';
+    };
+    url: '/v1/subscriptions/{id}';
+};
+
+export type GetSubscriptionResponses = {
+    /**
+     * Subscription
+     */
+    200: Subscription;
+};
+
+export type GetSubscriptionResponse = GetSubscriptionResponses[keyof GetSubscriptionResponses];
+
 export type TrackUsageData = {
     body: {
         /**
@@ -453,6 +1170,9 @@ export type TrackUsageData = {
          */
         wallet: string;
     };
+    headers?: {
+        'Idempotency-Key'?: string;
+    };
     path?: never;
     query?: never;
     url: '/v1/track';
@@ -462,9 +1182,35 @@ export type TrackUsageResponses = {
     /**
      * Usage tracked
      */
-    200: {
-        ok?: boolean;
-    };
+    200: TrackResult;
 };
 
 export type TrackUsageResponse = TrackUsageResponses[keyof TrackUsageResponses];
+
+export type ListUsageEventsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        limit?: number;
+        offset?: number;
+        wallet?: string;
+        feature?: string;
+        from?: string;
+        to?: string;
+    };
+    url: '/v1/usage';
+};
+
+export type ListUsageEventsResponses = {
+    /**
+     * Usage events
+     */
+    200: {
+        data?: Array<UsageEvent>;
+        limit?: number;
+        offset?: number;
+        total?: number;
+    };
+};
+
+export type ListUsageEventsResponse = ListUsageEventsResponses[keyof ListUsageEventsResponses];
