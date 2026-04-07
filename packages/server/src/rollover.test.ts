@@ -1,5 +1,5 @@
 import { describe, test, expect, mock } from "bun:test";
-import { Rollover } from "./rollover.js";
+import { Rollover } from "./index.js";
 
 function mockServer(handler: (url: string, init: RequestInit) => Response | Promise<Response>) {
   globalThis.fetch = mock(handler) as any;
