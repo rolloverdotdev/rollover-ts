@@ -4,8 +4,8 @@ Type-safe TypeScript SDK for the [Rollover](https://rollover.dev) subscription b
 
 ## Packages
 
-- [`@rolloverdotdev/client`](packages/client) Server-side SDK for checking access and tracking usage.
-- [`@rolloverdotdev/browser`](packages/browser) Browser SDK with wallet connection, SIWE auth, and x402 payments.
+- [`@rolloverdotdev/server`](packages/server) Server-side SDK for checking access, tracking usage, and managing plans.
+- [`@rolloverdotdev/browser`](packages/browser) Browser SDK with wallet connection, SIWX auth (CAIP-122), and x402 payments.
 
 ## Docs
 

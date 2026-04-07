@@ -1,13 +1,13 @@
 # @rolloverdotdev/browser
 
-Browser SDK for [Rollover](https://rollover.dev) with wallet connection, SIWE authentication, and automatic x402 payments.
+Browser SDK for [Rollover](https://rollover.dev) with wallet connection, SIWX authentication (CAIP-122), and automatic x402 payments.
 
 Requires an EIP-1193 compatible wallet (MetaMask, Coinbase Wallet, Rainbow, etc).
 
 ## Install
 
 ```bash
-npm install @rolloverdotdev/browser @x402/fetch @x402/evm viem
+npm install @rolloverdotdev/browser @x402/fetch @x402/evm @x402/extensions @x402/core viem
 ```
 
 ## Setup
@@ -26,18 +26,10 @@ const rollover = new Rollover({
 
 ### `connect()`
 
-Prompts the wallet popup and switches to the correct chain (Base or Base Sepolia).
+Prompts the wallet popup, switches to the correct chain, and signs a SIWX challenge to authenticate the session. All subsequent requests are automatically authenticated.
 
 ```ts
 const walletAddress = await rollover.connect()
-```
-
-### `authenticate()`
-
-Signs a SIWE message and returns a session JWT. Requires `connect()` first.
-
-```ts
-const token = await rollover.authenticate()
 ```
 
 ### `listPlans()`
@@ -95,7 +87,6 @@ const subscription = await rollover.resume()
 |---|---|---|
 | `wallet` | `string \| null` | Connected wallet address |
 | `isConnected` | `boolean` | Whether a wallet is connected |
-| `isAuthenticated` | `boolean` | Whether a session JWT exists |
 | `activity` | `RolloverEvent[]` | Log of all SDK events |
 
 ## Events
@@ -106,4 +97,4 @@ rollover.on("event", (e) => {
 })
 ```
 
-Event types: `wallet.connecting`, `wallet.connected`, `auth.signing`, `auth.authenticated`, `subscription.subscribing`, `subscription.created`, `subscription.switching`, `subscription.switched`, `subscription.cancelling`, `subscription.cancelled`, `subscription.resuming`, `subscription.resumed`
+Event types: `wallet.connecting`, `wallet.switching`, `wallet.adding`, `wallet.connected`, `auth.challenging`, `auth.signing`, `auth.authenticated`, `auth.error`, `plans.fetching`, `plans.loaded`, `subscription.subscribing`, `subscription.created`, `subscription.switching`, `subscription.switched`, `subscription.cancelling`, `subscription.cancelled`, `subscription.resuming`, `subscription.resumed`, `subscription.loaded`, `subscription.none`, `payment.402`, `payment.signing`, `payment.signed`, `payment.error`, `payment.settlement`, `payment.tx`, `payment.explorer`
