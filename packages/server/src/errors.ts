@@ -34,7 +34,7 @@ export class RateLimitError extends RolloverError {
   public readonly retryAfter: number | undefined;
 
   constructor(message: string, retryAfter?: number) {
-    super(429, "rate_limited", message);
+    super(429, ErrorCode.RateLimit, message);
     this.name = "RateLimitError";
     this.retryAfter = retryAfter;
   }

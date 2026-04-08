@@ -1,5 +1,5 @@
 import { describe, test, expect } from "bun:test";
-import { RolloverError, AuthenticationError, RateLimitError, isErrorCode, parseError } from "./errors.js";
+import { RolloverError, AuthenticationError, RateLimitError, ErrorCode, isErrorCode, parseError } from "./errors.js";
 
 describe("RolloverError", () => {
   test("sets statusCode, code, and message", () => {
@@ -11,7 +11,7 @@ describe("RolloverError", () => {
   });
 
   test("temporary returns true for 429 and 5xx", () => {
-    expect(new RolloverError(429, "rate_limited", "slow down").temporary()).toBe(true);
+    expect(new RolloverError(429, ErrorCode.RateLimit, "slow down").temporary()).toBe(true);
     expect(new RolloverError(500, "internal", "oops").temporary()).toBe(true);
     expect(new RolloverError(502, "bad_gateway", "oops").temporary()).toBe(true);
     expect(new RolloverError(400, "bad_request", "nope").temporary()).toBe(false);
@@ -68,12 +68,13 @@ describe("parseError", () => {
   });
 
   test("returns RateLimitError for 429", async () => {
-    const res = new Response(JSON.stringify({ code: "rate_limited", message: "slow down" }), {
+    const res = new Response(JSON.stringify({ code: "rate_limit_exceeded", message: "slow down" }), {
       status: 429,
       headers: { "Retry-After": "30" },
     });
     const err = await parseError(res);
     expect(err).toBeInstanceOf(RateLimitError);
+    expect(err.code).toBe(ErrorCode.RateLimit);
     expect((err as RateLimitError).retryAfter).toBe(30);
   });
 });
