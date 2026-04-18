@@ -75,12 +75,12 @@ export class Rollover {
     return this._request("POST", path, query, body, extraHeaders) as Promise<T>;
   }
 
-  async _patch<T>(
+  async _put<T>(
     path: string,
     query?: Record<string, string>,
     body?: unknown,
   ): Promise<T> {
-    return this._request("PATCH", path, query, body) as Promise<T>;
+    return this._request("PUT", path, query, body) as Promise<T>;
   }
 
   async _del(

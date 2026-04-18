@@ -32,4 +32,7 @@ export type {
   RecentEvent,
   CreditTransaction,
   Invoice,
+  Chain,
+  CreateChainParams,
+  UpdateChainParams,
 } from "./types.js";

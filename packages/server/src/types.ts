@@ -35,7 +35,8 @@ export interface Plan {
   billing_period: string;
   trial_days: number;
   auto_assign: boolean;
-  is_active: boolean;
+  is_archived: boolean;
+  latest_revision_id: string;
   sort_order: number;
   subscribers: number;
   features: Feature[];
@@ -60,8 +61,10 @@ export interface Subscription {
   id: string;
   wallet_address: string;
   plan_id: string;
+  plan_revision_id: string;
   plan_name: string;
   status: string;
+  billing_period: string;
   mode: string;
   period_start: string;
   period_end: string;
@@ -187,6 +190,8 @@ export interface Invoice {
   id: string;
   wallet_address: string;
   subscription_id: string;
+  mode: string;
+  chain_id: string;
   status: string;
   base_amount: string;
   overage_amount: string;
@@ -196,4 +201,31 @@ export interface Invoice {
   period_end: string;
   settled_at: string;
   created_at: string;
+}
+
+export interface Chain {
+  id: string;
+  org_id: string;
+  mode: string;
+  chain_id: string;
+  pay_to_address: string;
+  stablecoin_symbol: string;
+  enabled: boolean;
+  priority: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface CreateChainParams {
+  chain_id: string;
+  pay_to_address: string;
+  stablecoin_symbol?: string;
+  priority?: number;
+}
+
+export interface UpdateChainParams {
+  pay_to_address?: string;
+  stablecoin_symbol?: string;
+  enabled?: boolean;
+  priority?: number;
 }

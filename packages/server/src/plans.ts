@@ -17,6 +17,7 @@ declare module "./rollover.js" {
     createPlan(params: CreatePlanParams): Promise<Plan>;
     updatePlan(params: { slug: string } & UpdatePlanParams): Promise<Plan>;
     archivePlan(params: { slug: string }): Promise<void>;
+    deletePlan(params: { slug: string }): Promise<void>;
     createFeature(params: CreateFeatureParams & { planSlug: string }): Promise<Feature>;
     updateFeature(
       params: { planSlug: string; featureSlug: string } & UpdateFeatureParams,
@@ -97,17 +98,32 @@ Rollover.prototype.updatePlan = async function (
 ): Promise<Plan> {
   const q = await this._adminQuery();
   const { slug, ...body } = params;
-  return this._patch<Plan>(`/v1/plans/${encodeURIComponent(slug)}`, q, body);
+  return this._put<Plan>(`/v1/plans/${encodeURIComponent(slug)}`, q, body);
 };
 
 /**
- * Archive a plan by slug.
+ * Archive a plan by slug, hiding it from new subscribers while existing subscribers keep
+ * their current subscription on the revision they signed up on.
  */
 Rollover.prototype.archivePlan = async function (
   this: Rollover,
   params: { slug: string },
 ): Promise<void> {
   const q = await this._adminQuery();
+  await this._del(`/v1/plans/${encodeURIComponent(params.slug)}`, q);
+};
+
+/**
+ * Hard delete a plan and all of its revisions; the server returns 409
+ * `plan_has_subscriptions` when any subscription past or present references it, so reach for
+ * `archivePlan` whenever the plan has ever had a subscriber.
+ */
+Rollover.prototype.deletePlan = async function (
+  this: Rollover,
+  params: { slug: string },
+): Promise<void> {
+  const q = await this._adminQuery();
+  q.hard = "true";
   await this._del(`/v1/plans/${encodeURIComponent(params.slug)}`, q);
 };
 
@@ -152,7 +168,7 @@ Rollover.prototype.updateFeature = async function (
 ): Promise<Feature> {
   const q = await this._adminQuery();
   const { planSlug, featureSlug, ...body } = params;
-  return this._patch<Feature>(
+  return this._put<Feature>(
     `/v1/plans/${encodeURIComponent(planSlug)}/features/${encodeURIComponent(featureSlug)}`,
     q,
     body,
