@@ -19,8 +19,7 @@ const plan = await ro.createPlan({
 });
 console.log(`Created plan: ${plan.name} (${plan.slug})`);
 
-// 2. Link a catalog feature to the plan. Unknown feature slugs auto-create a metered
-// catalog feature on the server.
+// 2. Link a catalog feature to the plan.
 const link = await ro.linkFeature({
   planSlug: slug,
   feature_slug: "api-calls",

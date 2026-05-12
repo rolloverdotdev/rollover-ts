@@ -82,16 +82,16 @@ const plan = await ro.updatePlan({ slug: "starter", name: "Starter Plus", price_
 // Archive a plan.
 await ro.archivePlan({ slug: "starter" })
 
-// Add a feature to a plan.
-const feature = await ro.createFeature({
-  planSlug: "starter", feature_slug: "api-calls", name: "API Calls", limit_amount: 10000, reset_period: "monthly",
+// Link a catalog feature to a plan.
+const link = await ro.linkFeature({
+  planSlug: "starter", feature_slug: "api-calls", limit_amount: 10000, reset_period: "monthly", policy: "hard_block",
 })
 
-// Update a feature.
-const feature = await ro.updateFeature({ planSlug: "starter", featureSlug: "api-calls", limit_amount: 20000 })
+// Edit an existing plan-feature link.
+const link = await ro.updatePlanFeature({ planSlug: "starter", featureSlug: "api-calls", limit_amount: 20000 })
 
-// Delete a feature.
-await ro.deleteFeature({ planSlug: "starter", featureSlug: "api-calls" })
+// Detach a feature from a plan.
+await ro.unlinkFeature({ planSlug: "starter", featureSlug: "api-calls" })
 
 // List public pricing for a pricing page (no auth required).
 const plans = await ro.listPricing("your-org-slug")

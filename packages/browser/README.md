@@ -1,13 +1,13 @@
 # @rolloverdotdev/browser
 
-Browser SDK for [Rollover](https://rollover.dev) with wallet connection, SIWX authentication (CAIP-122), and automatic x402 payments.
+Browser SDK for [Rollover](https://rollover.dev) with wallet connection, DPoP-bound wallet sessions, and automatic x402 payments.
 
 Requires an EIP-1193 compatible wallet (MetaMask, Coinbase Wallet, Rainbow, etc).
 
 ## Install
 
 ```bash
-npm install @rolloverdotdev/browser @x402/fetch @x402/evm @x402/extensions @x402/core viem
+npm install @rolloverdotdev/browser @x402/core @x402/evm @x402/extensions @x402/fetch jose viem
 ```
 
 ## Setup
@@ -16,25 +16,34 @@ npm install @rolloverdotdev/browser @x402/fetch @x402/evm @x402/extensions @x402
 import { Rollover } from "@rolloverdotdev/browser"
 
 const rollover = new Rollover({
-  apiUrl: "https://api.rollover.dev",
   orgSlug: "my-team",
   mode: "live", // "test" for Base Sepolia, "live" for Base
 })
 ```
 
+`apiUrl` is optional and defaults to `https://api.rollover.dev`.
+
 ## Methods
 
 ### `connect()`
 
-Prompts the wallet popup, switches to the correct chain, and signs a SIWX challenge to authenticate the session. All subsequent requests are automatically authenticated.
+Connects the wallet, exchanges a SIWX signature for a DPoP-bound access token at `/v1/wallet/session`, and authenticates every subsequent request.
 
 ```ts
 const walletAddress = await rollover.connect()
 ```
 
+### `disconnect()`
+
+Clears the session and the in-memory wallet reference.
+
+```ts
+rollover.disconnect()
+```
+
 ### `listPlans()`
 
-Fetches available plans for the organization. No wallet connection required.
+Fetches the public pricing for the org.
 
 ```ts
 const plans = await rollover.listPlans()
@@ -42,7 +51,7 @@ const plans = await rollover.listPlans()
 
 ### `subscribe(planSlug)`
 
-Subscribes to a plan. If the plan has a price, the x402 payment popup is handled automatically.
+Subscribes to a plan and handles the x402 payment in the wallet.
 
 ```ts
 const subscription = await rollover.subscribe("pro")
@@ -50,7 +59,7 @@ const subscription = await rollover.subscribe("pro")
 
 ### `getSubscription()`
 
-Returns the current active subscription, or `null` if none.
+Returns the current active subscription or null.
 
 ```ts
 const subscription = await rollover.getSubscription()
@@ -58,7 +67,7 @@ const subscription = await rollover.getSubscription()
 
 ### `switchPlan(planSlug)`
 
-Switches to a different plan. Handles proration and payment automatically.
+Switches the active subscription to a different plan.
 
 ```ts
 const subscription = await rollover.switchPlan("enterprise")
@@ -70,7 +79,6 @@ Cancels the subscription at the end of the current billing period.
 
 ```ts
 const subscription = await rollover.cancel()
-// subscription.cancel_at_end === true
 ```
 
 ### `resume()`
@@ -93,8 +101,10 @@ const subscription = await rollover.resume()
 
 ```ts
 rollover.on("event", (e) => {
-  console.log(e.type, e.detail)
+  console.log(e.level, e.type, e.detail)
 })
 ```
 
-Event types: `wallet.connecting`, `wallet.switching`, `wallet.adding`, `wallet.connected`, `auth.challenging`, `auth.signing`, `auth.authenticated`, `auth.error`, `plans.fetching`, `plans.loaded`, `subscription.subscribing`, `subscription.created`, `subscription.switching`, `subscription.switched`, `subscription.cancelling`, `subscription.cancelled`, `subscription.resuming`, `subscription.resumed`, `subscription.loaded`, `subscription.none`, `payment.402`, `payment.signing`, `payment.signed`, `payment.error`, `payment.settlement`, `payment.tx`, `payment.explorer`
+Each event carries a `level` of `info`, `success`, `warning`, or `error`.
+
+Event types: `wallet.connecting`, `wallet.connected`, `wallet.switching`, `wallet.adding`, `wallet.disconnected`, `auth.signing`, `plans.loaded`, `subscription.created`, `subscription.switched`, `subscription.loaded`, `subscription.none`, `subscription.cancelled`, `subscription.resumed`, `payment.required`, `payment.signed`, `payment.settlement`, `payment.failed`.

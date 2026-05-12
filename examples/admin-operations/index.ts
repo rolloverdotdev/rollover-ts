@@ -28,8 +28,7 @@ const updated = await ro.updatePlan({
 });
 console.log(`Updated plan: ${updated.name}`);
 
-// Link a catalog feature to the plan. Unknown feature slugs auto-create a metered
-// catalog feature on the server.
+// Link a catalog feature to the plan.
 const link = await ro.linkFeature({
   planSlug: slug,
   feature_slug: "requests",

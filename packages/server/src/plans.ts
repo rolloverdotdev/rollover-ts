@@ -178,7 +178,7 @@ Rollover.prototype.updatePlanFeature = async function (
 };
 
 /**
- * Detach a feature from a plan. The catalog feature itself is unaffected.
+ * Detach a feature from a plan.
  */
 Rollover.prototype.unlinkFeature = async function (
   this: Rollover,
