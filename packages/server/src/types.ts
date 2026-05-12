@@ -1,3 +1,20 @@
+/**
+ * Canonical kind of a feature in the org catalog.
+ * - `boolean`: access flag
+ * - `metered`: usage counter with limit and reset period
+ * - `credit`: pooled balance fed by metered features at a configurable cost
+ * - `static`: non-consumptive numeric cap the consumer app enforces itself
+ */
+export type FeatureType = "boolean" | "metered" | "credit" | "static";
+
+/**
+ * What happens when a subscriber hits the plan-feature limit.
+ * - `hard_block`: reject the request (default)
+ * - `soft_warn`: let it through for cycle-end reconciliation; requires metered or credit
+ * - `hide`: treat the feature as not present at all
+ */
+export type Policy = "hard_block" | "soft_warn" | "hide";
+
 export interface CheckResult {
   allowed: boolean;
   used: number;
@@ -39,22 +56,38 @@ export interface Plan {
   latest_revision_id: string;
   sort_order: number;
   subscribers: number;
-  features: Feature[];
+  features: PlanFeature[];
   metadata: Record<string, unknown>;
   created_at: string;
   updated_at: string;
   last_subscribed_at: string;
 }
 
+/**
+ * An org-scoped catalog feature. Plans reference features through {@link PlanFeature}
+ * link rows; the catalog row owns the canonical slug, display name, and type.
+ */
 export interface Feature {
   id: string;
-  feature_slug: string;
+  slug: string;
   name: string;
+  type: FeatureType;
+}
+
+/**
+ * One feature linked to one plan, carrying the plan-specific limits and the policy that
+ * controls what happens when a subscriber hits them. `feature` holds the catalog row this
+ * link points to on responses.
+ */
+export interface PlanFeature {
+  id: string;
   limit_amount: number;
   reset_period: string;
-  credit_cost: number;
   overage_price: string;
   weight: string;
+  credit_cost: number;
+  policy: Policy;
+  feature?: Feature;
 }
 
 export interface Subscription {
@@ -124,14 +157,20 @@ export interface CreatePlanParams {
   sort_order?: number;
 }
 
-export interface CreateFeatureParams {
-  feature_slug: string;
-  name: string;
+/**
+ * Parameters for linking a catalog feature to a plan. Supply either `feature_id` or
+ * `feature_slug`; if `feature_slug` names a feature that does not yet exist in the org
+ * catalog, the server creates one as a metered feature. `policy` defaults to `hard_block`.
+ */
+export interface LinkFeatureParams {
+  feature_id?: string;
+  feature_slug?: string;
   limit_amount?: number;
   reset_period?: string;
   credit_cost?: number;
   overage_price?: string;
   weight?: string;
+  policy?: Policy;
 }
 
 export interface UpdatePlanParams {
@@ -146,13 +185,16 @@ export interface UpdatePlanParams {
   sort_order?: number;
 }
 
-export interface UpdateFeatureParams {
-  name?: string;
+/**
+ * Parameters for editing one plan-feature link. Only fields set on the object are sent.
+ */
+export interface UpdatePlanFeatureParams {
   limit_amount?: number;
   reset_period?: string;
   credit_cost?: number;
   overage_price?: string;
   weight?: string;
+  policy?: Policy;
 }
 
 export interface AnalyticsStats {

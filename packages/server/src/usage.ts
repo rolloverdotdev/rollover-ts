@@ -65,10 +65,9 @@ Rollover.prototype.track = async function (
     idempotencyKey?: string;
   },
 ): Promise<TrackResult> {
-  const headers: Record<string, string> = {};
-  if (params.idempotencyKey) {
-    headers["Idempotency-Key"] = params.idempotencyKey;
-  }
+  const headers: Record<string, string> = {
+    "Idempotency-Key": params.idempotencyKey ?? crypto.randomUUID(),
+  };
   const data = await this._post<Record<string, unknown>>("/v1/track", undefined, {
     wallet: params.wallet,
     feature: params.feature,

@@ -1,12 +1,12 @@
 import { Rollover } from "./rollover.js";
 import type {
-  CreateFeatureParams,
   CreatePlanParams,
-  Feature,
+  LinkFeatureParams,
   ListOptions,
   Page,
   Plan,
-  UpdateFeatureParams,
+  PlanFeature,
+  UpdatePlanFeatureParams,
   UpdatePlanParams,
 } from "./types.js";
 
@@ -18,11 +18,11 @@ declare module "./rollover.js" {
     updatePlan(params: { slug: string } & UpdatePlanParams): Promise<Plan>;
     archivePlan(params: { slug: string }): Promise<void>;
     deletePlan(params: { slug: string }): Promise<void>;
-    createFeature(params: CreateFeatureParams & { planSlug: string }): Promise<Feature>;
-    updateFeature(
-      params: { planSlug: string; featureSlug: string } & UpdateFeatureParams,
-    ): Promise<Feature>;
-    deleteFeature(params: { planSlug: string; featureSlug: string }): Promise<void>;
+    linkFeature(params: LinkFeatureParams & { planSlug: string }): Promise<PlanFeature>;
+    updatePlanFeature(
+      params: { planSlug: string; featureSlug: string } & UpdatePlanFeatureParams,
+    ): Promise<PlanFeature>;
+    unlinkFeature(params: { planSlug: string; featureSlug: string }): Promise<void>;
     listPricing(orgSlug: string): Promise<Plan[]>;
   }
 }
@@ -128,47 +128,49 @@ Rollover.prototype.deletePlan = async function (
 };
 
 /**
- * Add a feature to a plan.
+ * Link a catalog feature to a plan. If `feature_slug` names a feature that does not yet
+ * exist in the org catalog, the server creates one as a metered feature.
  *
  * @example
  * ```typescript
- * const feature = await ro.createFeature({
+ * const link = await ro.linkFeature({
  *   planSlug: "starter",
  *   feature_slug: "api-calls",
- *   name: "API Calls",
  *   limit_amount: 10000,
  *   reset_period: "monthly",
  * });
+ * console.log(link.feature?.slug, link.policy);
  * ```
  */
-Rollover.prototype.createFeature = async function (
+Rollover.prototype.linkFeature = async function (
   this: Rollover,
-  params: CreateFeatureParams & { planSlug: string },
-): Promise<Feature> {
+  params: LinkFeatureParams & { planSlug: string },
+): Promise<PlanFeature> {
   const q = await this._adminQuery();
   const { planSlug, ...body } = params;
-  return this._post<Feature>(`/v1/plans/${encodeURIComponent(planSlug)}/features`, q, body);
+  return this._post<PlanFeature>(`/v1/plans/${encodeURIComponent(planSlug)}/features`, q, body);
 };
 
 /**
- * Update an existing feature on a plan, sending only the fields provided.
+ * Edit the limits or policy on an existing plan-feature link, sending only the fields
+ * provided.
  *
  * @example
  * ```typescript
- * const feature = await ro.updateFeature({
+ * const link = await ro.updatePlanFeature({
  *   planSlug: "starter",
  *   featureSlug: "api-calls",
  *   limit_amount: 20000,
  * });
  * ```
  */
-Rollover.prototype.updateFeature = async function (
+Rollover.prototype.updatePlanFeature = async function (
   this: Rollover,
-  params: { planSlug: string; featureSlug: string } & UpdateFeatureParams,
-): Promise<Feature> {
+  params: { planSlug: string; featureSlug: string } & UpdatePlanFeatureParams,
+): Promise<PlanFeature> {
   const q = await this._adminQuery();
   const { planSlug, featureSlug, ...body } = params;
-  return this._put<Feature>(
+  return this._put<PlanFeature>(
     `/v1/plans/${encodeURIComponent(planSlug)}/features/${encodeURIComponent(featureSlug)}`,
     q,
     body,
@@ -176,9 +178,9 @@ Rollover.prototype.updateFeature = async function (
 };
 
 /**
- * Delete a feature from a plan.
+ * Detach a feature from a plan. The catalog feature itself is unaffected.
  */
-Rollover.prototype.deleteFeature = async function (
+Rollover.prototype.unlinkFeature = async function (
   this: Rollover,
   params: { planSlug: string; featureSlug: string },
 ): Promise<void> {

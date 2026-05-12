@@ -28,23 +28,23 @@ const updated = await ro.updatePlan({
 });
 console.log(`Updated plan: ${updated.name}`);
 
-// Add a feature.
-const feature = await ro.createFeature({
+// Link a catalog feature to the plan. Unknown feature slugs auto-create a metered
+// catalog feature on the server.
+const link = await ro.linkFeature({
   planSlug: slug,
   feature_slug: "requests",
-  name: "API Requests",
   limit_amount: 5000,
   reset_period: "monthly",
 });
-console.log(`Added feature: ${feature.feature_slug} (limit: ${feature.limit_amount})`);
+console.log(`Linked feature: ${link.feature?.slug} (limit: ${link.limit_amount}, policy: ${link.policy})`);
 
-// Update the feature.
-const updatedFeature = await ro.updateFeature({
+// Update the plan-feature link.
+const updatedLink = await ro.updatePlanFeature({
   planSlug: slug,
   featureSlug: "requests",
   limit_amount: 10000,
 });
-console.log(`Updated feature limit: ${updatedFeature.limit_amount}`);
+console.log(`Updated link limit: ${updatedLink.limit_amount}`);
 
 // Subscribe a wallet and inspect the subscription.
 const wallet = `0x${Date.now().toString(16).padStart(40, "0")}`;
@@ -67,6 +67,6 @@ const invoices = await ro.listInvoices({ wallet });
 console.log(`Invoices: ${invoices.total}`);
 
 // Cleanup.
-await ro.deleteFeature({ planSlug: slug, featureSlug: "requests" });
+await ro.unlinkFeature({ planSlug: slug, featureSlug: "requests" });
 await ro.archivePlan({ slug });
 console.log("Cleaned up.");

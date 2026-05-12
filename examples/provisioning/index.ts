@@ -19,15 +19,15 @@ const plan = await ro.createPlan({
 });
 console.log(`Created plan: ${plan.name} (${plan.slug})`);
 
-// 2. Add features.
-const feature = await ro.createFeature({
+// 2. Link a catalog feature to the plan. Unknown feature slugs auto-create a metered
+// catalog feature on the server.
+const link = await ro.linkFeature({
   planSlug: slug,
   feature_slug: "api-calls",
-  name: "API Calls",
   limit_amount: 10000,
   reset_period: "monthly",
 });
-console.log(`  Added feature: ${feature.feature_slug} (limit: ${feature.limit_amount})`);
+console.log(`  Linked feature: ${link.feature?.slug} (limit: ${link.limit_amount})`);
 
 // 3. Subscribe a wallet.
 const wallet = `0x${Date.now().toString(16).padStart(40, "0")}`;
