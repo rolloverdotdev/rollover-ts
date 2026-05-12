@@ -1,324 +1,554 @@
 /**
  * Rollover Browser SDK.
- * Wallet connection, SIWX authentication (CAIP-122), and x402 payment flows.
+ *
+ * Handles wallet connection, SIWX → DPoP wallet-session exchange, dynamic chain selection
+ * from `/v1/networks`, and x402 payments for subscribe and switch-plan flows.
  */
 
-import { wrapFetchWithPayment, x402Client, decodePaymentResponseHeader } from "@x402/fetch";
-import { createSIWxPayload, encodeSIWxHeader } from "@x402/extensions/sign-in-with-x";
 import { decodePaymentRequiredHeader } from "@x402/core/http";
 import { ExactEvmScheme, toClientEvmSigner } from "@x402/evm";
+import {
+  createSIWxPayload,
+  encodeSIWxHeader,
+  SIGN_IN_WITH_X,
+} from "@x402/extensions/sign-in-with-x";
+import type {
+  CompleteSIWxInfo,
+  EVMSigner,
+  SIWxExtension,
+} from "@x402/extensions/sign-in-with-x";
+import {
+  decodePaymentResponseHeader,
+  wrapFetchWithPayment,
+  x402Client,
+} from "@x402/fetch";
+import { base64url, SignJWT } from "jose";
+import type { JWK } from "jose";
 import { createWalletClient, custom, getAddress } from "viem";
-import { base, baseSepolia } from "viem/chains";
+import type { Chain } from "viem";
 import { RolloverError } from "./errors.js";
 import type {
   RolloverConfig,
   RolloverEvent,
+  RolloverEventLevel,
+  RolloverNetwork,
   RolloverPlan,
   RolloverSubscription,
 } from "./types.js";
 
 declare global {
   interface Window {
-    ethereum: any;
+    ethereum?: {
+      request<T = unknown>(args: { method: string; params?: unknown }): Promise<T>;
+    };
   }
 }
 
-const CHAINS = {
-  test: {
-    hex: "0x14a34",
-    id: "84532",
-    viem: baseSepolia,
-    name: "Base Sepolia",
-    rpc: "https://sepolia.base.org",
-    explorer: "https://sepolia.basescan.org",
-  },
-  live: {
-    hex: "0x2105",
-    id: "8453",
-    viem: base,
-    name: "Base",
-    rpc: "https://mainnet.base.org",
-    explorer: "https://basescan.org",
-  },
-} as const;
+const DEFAULT_API_URL = "https://api.rollover.dev";
+const SESSION_REFRESH_SKEW_MS = 30_000;
+
+type WalletAdd = NonNullable<RolloverNetwork["walletAdd"]>;
+
+type EVMNetwork = RolloverNetwork & {
+  type: "evm";
+  chainId: number;
+  chainHex: `0x${string}`;
+  chain: Chain;
+  walletAdd: WalletAdd;
+};
+
+type BrowserEthereumProvider = NonNullable<Window["ethereum"]>;
+
+type SubscriptionResponse = {
+  subscription: RolloverSubscription;
+  transaction?: string;
+};
+
+type WalletSessionResponse = {
+  access_token: string;
+  token_type: "DPoP";
+  expires_in: number;
+  wallet: string;
+};
+
+type RequestOptions = {
+  auth?: boolean;
+  body?: Record<string, unknown>;
+  paid?: boolean;
+  idempotencyKey?: string;
+};
 
 export class Rollover {
-  private config: RolloverConfig;
-  private _wallet: string | null = null;
-  private _payFetch: typeof fetch | null = null;
-  private _events: RolloverEvent[] = [];
-  private _listeners: ((e: RolloverEvent) => void)[] = [];
-  private _inflight = new Map<string, Promise<unknown>>();
+  private readonly apiUrl: string;
+  private readonly orgSlug: string;
+  private readonly mode: "test" | "live";
+  private walletAddress: `0x${string}` | null = null;
+  private provider: BrowserEthereumProvider | null = null;
+  private session: { token: string; expiresAt: number } | null = null;
+  private dpopKey: CryptoKeyPair | null = null;
+  private dpopJwk: JWK | null = null;
+  private cachedNetworks: EVMNetwork[] | null = null;
+  private cachedPayFetch: typeof fetch | null = null;
+  private connectPromise: Promise<`0x${string}`> | null = null;
+  private sessionPromise: Promise<void> | null = null;
+  private events: RolloverEvent[] = [];
+  private listeners: ((e: RolloverEvent) => void)[] = [];
 
   constructor(config: RolloverConfig) {
-    this.config = config;
+    this.apiUrl = (config.apiUrl ?? DEFAULT_API_URL).replace(/\/+$/, "");
+    this.orgSlug = config.orgSlug;
+    this.mode = config.mode;
   }
 
   get wallet() {
-    return this._wallet;
+    return this.walletAddress;
   }
+
   get isConnected() {
-    return this._wallet !== null;
+    return this.walletAddress !== null;
   }
+
   get activity() {
-    return this._events;
+    return this.events;
   }
 
   on(_: "event", fn: (e: RolloverEvent) => void) {
-    this._listeners.push(fn);
-  }
-
-  log(detail: string) {
-    this.emit("info", detail);
-  }
-
-  private emit(type: string, detail: string) {
-    const e: RolloverEvent = { type, detail, timestamp: Date.now() };
-    this._events.push(e);
-    this._listeners.forEach((fn) => fn(e));
-  }
-
-  private chain() {
-    return CHAINS[this.config.mode];
-  }
-
-  private dedupe<T>(key: string, fn: () => Promise<T>): Promise<T> {
-    const existing = this._inflight.get(key);
-    if (existing) return existing as Promise<T>;
-    const p = fn().finally(() => this._inflight.delete(key));
-    this._inflight.set(key, p);
-    return p;
-  }
-
-  private txLink(hash: string) {
-    return `${this.chain().explorer}/tx/${hash}`;
-  }
-
-  private async request<T>(
-    method: string,
-    path: string,
-    opts?: { body?: Record<string, unknown>; payment?: boolean; idempotencyKey?: string },
-  ): Promise<T> {
-    const f = this._payFetch ?? fetch;
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-      "X-Org-Slug": this.config.orgSlug,
-      "X-Mode": this.config.mode,
+    this.listeners.push(fn);
+    return () => {
+      this.listeners = this.listeners.filter((listener) => listener !== fn);
     };
-    if (opts?.payment) headers["Idempotency-Key"] = opts.idempotencyKey ?? crypto.randomUUID();
-
-    const res = await f(`${this.config.apiUrl}${path}`, {
-      method,
-      headers,
-      ...(opts?.body ? { body: JSON.stringify(opts.body) } : {}),
-    });
-
-    if (!res.ok && res.status !== 201) {
-      const err = await res.json().catch(() => ({ code: "unknown", message: "Request failed" }));
-      throw new RolloverError(res.status, err.code ?? "unknown", err.message ?? "Request failed");
-    }
-
-    const settlement = res.headers.get("PAYMENT-RESPONSE") ?? res.headers.get("X-PAYMENT-RESPONSE");
-    if (settlement) {
-      try {
-        const decoded = decodePaymentResponseHeader(settlement);
-        this.emit("payment.settlement", `Settlement success=${decoded.success} | payer ${decoded.payer} | network ${decoded.network}`);
-        if (decoded.transaction) {
-          this.emit("payment.tx", `Tx ${decoded.transaction}`);
-          this.emit("payment.explorer", `Explorer: ${this.txLink(decoded.transaction)}`);
-        }
-      } catch { /* ignore */ }
-    }
-
-    return res.json();
   }
 
-  async connect(): Promise<string> {
-    if (!window.ethereum) throw new Error("No wallet found");
-    this.emit("wallet.connecting", "Requesting wallet connection...");
+  log(detail: string, level: RolloverEventLevel = "info") {
+    this.emit("info", detail, level);
+  }
 
-    const accounts: string[] = await window.ethereum.request({ method: "eth_requestAccounts" });
-    const addr = accounts[0] ?? "";
-    if (!addr) throw new Error("No account returned");
+  async connect(): Promise<`0x${string}`> {
+    if (this.walletAddress) return this.walletAddress;
+    this.connectPromise ??= this.connectWallet().finally(() => {
+      this.connectPromise = null;
+    });
+    return this.connectPromise;
+  }
 
-    const c = this.chain();
-    this.emit("wallet.switching", `Switching to ${c.name} (chainId ${c.id})...`);
-
-    try {
-      await window.ethereum.request({
-        method: "wallet_switchEthereumChain",
-        params: [{ chainId: c.hex }],
-      });
-    } catch (e: unknown) {
-      if (typeof e === "object" && e !== null && "code" in e && (e as { code: number }).code === 4902) {
-        this.emit("wallet.adding", `Adding ${c.name} to wallet...`);
-        await window.ethereum.request({
-          method: "wallet_addEthereumChain",
-          params: [{
-            chainId: c.hex,
-            chainName: c.name,
-            rpcUrls: [c.rpc],
-            nativeCurrency: { name: "ETH", symbol: "ETH", decimals: 18 },
-            blockExplorerUrls: [c.explorer],
-          }],
-        });
-      }
-    }
-
-    this._wallet = addr;
-    this._payFetch = await this.buildPayFetch(addr);
-    this.emit("wallet.connected", `${addr.slice(0, 6)}...${addr.slice(-4)} on ${c.name}`);
-    return addr;
+  disconnect() {
+    this.walletAddress = null;
+    this.provider = null;
+    this.session = null;
+    this.cachedPayFetch = null;
+    this.connectPromise = null;
+    this.sessionPromise = null;
+    this.emit("wallet.disconnected", "Wallet disconnected");
   }
 
   async listPlans(): Promise<RolloverPlan[]> {
-    this.emit("plans.fetching", `GET /v1/pricing/${this.config.orgSlug}`);
-    const res = await fetch(`${this.config.apiUrl}/v1/pricing/${this.config.orgSlug}?mode=${this.config.mode}`);
-    if (!res.ok) throw new Error("Failed to fetch plans");
-    const data: unknown = await res.json();
-    const plans = Array.isArray(data) ? (data as RolloverPlan[]) : [];
-    this.emit("plans.loaded", `${plans.length} plan${plans.length === 1 ? "" : "s"}`);
+    const plans = await this.request<RolloverPlan[]>(
+      "GET",
+      `/v1/pricing/${encodeURIComponent(this.orgSlug)}?mode=${this.mode}`,
+      { auth: false },
+    );
+    this.emit(
+      "plans.loaded",
+      `Loaded ${plans.length} plan${plans.length === 1 ? "" : "s"}`,
+      "success",
+    );
     return plans;
   }
 
   async subscribe(planSlug: string): Promise<RolloverSubscription> {
-    return this.dedupe(`subscribe:${planSlug}`, () => this._subscribe(planSlug));
+    const sub = await this.changePlan("POST", { plan_slug: planSlug, org_slug: this.orgSlug });
+    this.emit("subscription.created", `Subscribed to ${sub.plan_name ?? planSlug}`, "success");
+    return sub;
   }
 
-  private async _subscribe(planSlug: string): Promise<RolloverSubscription> {
-    this.emit("subscription.subscribing", `Subscribing to "${planSlug}"`);
-    const data = await this.request<RolloverSubscription & { subscription?: RolloverSubscription }>(
-      "POST", "/v1/subscription", {
-        body: { plan_slug: planSlug, org_slug: this.config.orgSlug },
-        payment: true,
-        idempotencyKey: crypto.randomUUID(),
-      },
-    );
-    const sub = data.subscription ?? data;
-    this.emit("subscription.created", `${sub.plan_name ?? planSlug} (${sub.status})`);
+  async switchPlan(planSlug: string): Promise<RolloverSubscription> {
+    const sub = await this.changePlan("PUT", { plan_slug: planSlug });
+    this.emit("subscription.switched", `Switched to ${sub.plan_name ?? planSlug}`, "success");
     return sub;
   }
 
   async getSubscription(): Promise<RolloverSubscription | null> {
     try {
       const sub = await this.request<RolloverSubscription>("GET", "/v1/subscription");
-      this.emit("subscription.loaded", `${sub.plan_name ?? sub.plan_id} (${sub.status}${sub.cancel_at_end ? ", cancelling" : ""})`);
+      this.emit(
+        "subscription.loaded",
+        sub.plan_name ? `Current subscription: ${sub.plan_name}` : "Current subscription loaded",
+        sub.cancel_at_end ? "warning" : "success",
+      );
       return sub;
-    } catch (e) {
-      if (e instanceof RolloverError && e.status === 404) {
+    } catch (error) {
+      if (error instanceof RolloverError && error.status === 404) {
         this.emit("subscription.none", "No active subscription");
         return null;
       }
-      throw e;
+      throw error;
     }
   }
 
-  async switchPlan(planSlug: string): Promise<RolloverSubscription> {
-    return this.dedupe(`switchPlan:${planSlug}`, () => this._switchPlan(planSlug));
-  }
-
-  private async _switchPlan(planSlug: string): Promise<RolloverSubscription> {
-    this.emit("subscription.switching", `Switching to "${planSlug}"`);
-    const data = await this.request<RolloverSubscription & { subscription?: RolloverSubscription }>(
-      "PUT", "/v1/subscription", {
-        body: { plan_slug: planSlug },
-        payment: true,
-        idempotencyKey: crypto.randomUUID(),
-      },
-    );
-    const sub = data.subscription ?? data;
-    this.emit("subscription.switched", `${sub.plan_name ?? planSlug} (${sub.status})`);
-    return sub;
-  }
-
   async cancel(): Promise<RolloverSubscription> {
-    return this.dedupe("cancel", () => this._cancel());
-  }
-
-  private async _cancel(): Promise<RolloverSubscription> {
-    this.emit("subscription.cancelling", "Cancelling...");
     const sub = await this.request<RolloverSubscription>("DELETE", "/v1/subscription");
-    this.emit("subscription.cancelled", `Cancels at ${new Date(sub.period_end).toLocaleString()}`);
+    this.emit(
+      "subscription.cancelled",
+      `Cancels at ${new Date(sub.period_end).toLocaleString()}`,
+      "warning",
+    );
     return sub;
   }
 
   async resume(): Promise<RolloverSubscription> {
-    return this.dedupe("resume", () => this._resume());
-  }
-
-  private async _resume(): Promise<RolloverSubscription> {
-    this.emit("subscription.resuming", "Resuming...");
     const sub = await this.request<RolloverSubscription>("POST", "/v1/subscription/resume");
-    this.emit("subscription.resumed", `Renews ${new Date(sub.period_end).toLocaleString()}`);
+    this.emit(
+      "subscription.resumed",
+      `Renews ${new Date(sub.period_end).toLocaleString()}`,
+      "success",
+    );
     return sub;
   }
 
-  private async buildPayFetch(wallet: string): Promise<typeof fetch> {
-    const wc = createWalletClient({
-      chain: this.chain().viem,
-      transport: custom(window.ethereum),
-      account: getAddress(wallet as `0x${string}`),
+  private async changePlan(method: "POST" | "PUT", body: Record<string, unknown>) {
+    const data = await this.request<SubscriptionResponse>(method, "/v1/subscription", {
+      body,
+      paid: true,
+    });
+    return data.subscription;
+  }
+
+  private async request<T>(
+    method: string,
+    path: string,
+    opts: RequestOptions = {},
+  ): Promise<T> {
+    if (opts.auth !== false) await this.ensureSession();
+
+    const url = this.url(path);
+    const headers = await this.headers(method, url, opts);
+    const fetcher = opts.paid ? await this.paymentFetch() : fetch;
+    const res = await fetcher(url, {
+      method,
+      headers,
+      ...(opts.body ? { body: JSON.stringify(opts.body) } : {}),
     });
 
-    // Sign SIWX once at connect time by requesting a challenge from the server
-    this.emit("auth.challenging", "Requesting SIWX challenge...");
-    const challengeRes = await fetch(`${this.config.apiUrl}/v1/subscription`, {
+    if (!res.ok) {
+      const err = await RolloverError.from(res);
+      if (opts.paid) this.emit("payment.failed", paymentFailureMessage(err), "error");
+      throw err;
+    }
+
+    const settlement = res.headers.get("PAYMENT-RESPONSE") ?? res.headers.get("X-PAYMENT-RESPONSE");
+    if (settlement) {
+      try {
+        const decoded = decodePaymentResponseHeader(settlement);
+        const tx = decoded.transaction ? shortTx(decoded.transaction) : null;
+        this.emit(
+          "payment.settlement",
+          tx ? `Settled onchain, tx ${tx}` : "Settled onchain",
+          "success",
+        );
+      } catch {
+        this.emit("payment.settlement", "Settled onchain", "success");
+      }
+    }
+
+    return res.json() as Promise<T>;
+  }
+
+  private async headers(method: string, url: string, opts: RequestOptions) {
+    const headers = new Headers({
+      accept: "application/json",
+      "x-org-slug": this.orgSlug,
+      "x-mode": this.mode,
+    });
+
+    if (opts.body) headers.set("content-type", "application/json");
+    if (opts.paid) headers.set("idempotency-key", opts.idempotencyKey ?? crypto.randomUUID());
+    if (opts.auth === false) return headers;
+
+    const session = this.session;
+    if (!session) throw new Error("Wallet session was not established");
+    headers.set("authorization", `DPoP ${session.token}`);
+    headers.set("dpop", await this.dpop(method, url, session.token));
+    return headers;
+  }
+
+  private async connectWallet(): Promise<`0x${string}`> {
+    const provider = window.ethereum;
+    if (!provider) throw new Error("No wallet found");
+
+    this.emit("wallet.connecting", "Requesting wallet connection...");
+    const accounts = await provider.request<string[]>({ method: "eth_requestAccounts" });
+    const address = getAddress((accounts[0] ?? "") as `0x${string}`);
+
+    this.provider = provider;
+    this.walletAddress = address;
+    await this.ensureSession();
+    this.emit("wallet.connected", "Wallet connected and authenticated", "success");
+    return address;
+  }
+
+  private async ensureSession() {
+    if (!this.walletAddress || !this.provider) await this.connect();
+    if (this.session && Date.now() < this.session.expiresAt - SESSION_REFRESH_SKEW_MS) return;
+
+    this.sessionPromise ??= this.refreshSession().finally(() => {
+      this.sessionPromise = null;
+    });
+    await this.sessionPromise;
+  }
+
+  private async refreshSession() {
+    if (!this.walletAddress || !this.provider) throw new Error("Wallet not connected");
+    await this.ensureDPoPKey();
+
+    const sessionURL = this.url("/v1/wallet/session");
+    const challenge = await fetch(sessionURL, {
+      headers: await this.headers("GET", sessionURL, { auth: false }),
+    });
+    const paymentRequired = challenge.headers.get("PAYMENT-REQUIRED");
+    if (!paymentRequired) throw new Error("Server did not return SIWX challenge");
+
+    const pr = decodePaymentRequiredHeader(paymentRequired);
+    const siwx = pr.extensions?.[SIGN_IN_WITH_X] as SIWxExtension | undefined;
+    const networks = await this.evmNetworks();
+    const selected = siwx?.supportedChains
+      ?.map((chain) => ({
+        chain,
+        network: networks.find((network) => network.chain_id === chain.chainId),
+      }))
+      .find(
+        (candidate): candidate is { chain: CompleteSIWxInfo; network: EVMNetwork } =>
+          candidate.chain.type === "eip191" && !!candidate.network,
+      );
+
+    if (!siwx || !selected) {
+      throw new Error("Server did not include an EVM SIWX chain this browser SDK can use");
+    }
+
+    await this.switchNetwork(selected.network);
+    const walletClient = createWalletClient({
+      account: this.walletAddress,
+      chain: selected.network.chain,
+      transport: custom(this.provider),
+    });
+    const signer: EVMSigner = {
+      address: this.walletAddress,
+      signMessage: ({ message }) =>
+        walletClient.signMessage({ account: this.walletAddress!, message }),
+    };
+
+    this.emit("auth.signing", `Signing SIWX for ${selected.network.name}...`);
+    const info: CompleteSIWxInfo = {
+      ...siwx.info,
+      chainId: selected.chain.chainId,
+      type: selected.chain.type,
+    };
+    const payload = await createSIWxPayload(info, signer);
+    const res = await fetch(sessionURL, {
+      method: "POST",
       headers: {
-        "X-Org-Slug": this.config.orgSlug,
-        "X-Mode": this.config.mode,
+        "x-org-slug": this.orgSlug,
+        "x-mode": this.mode,
+        [SIGN_IN_WITH_X]: encodeSIWxHeader(payload),
+        dpop: await this.dpop("POST", sessionURL),
       },
     });
 
-    const prHeader = challengeRes.headers.get("PAYMENT-REQUIRED");
-    if (!prHeader) throw new Error("Server did not return SIWX challenge");
+    if (!res.ok) throw await RolloverError.from(res);
 
-    const pr = decodePaymentRequiredHeader(prHeader);
-    const siwx = pr.extensions?.["sign-in-with-x"] as
-      | { info: Record<string, unknown>; supportedChains: { chainId: string; type: string }[] }
-      | undefined;
-    if (!siwx?.supportedChains?.length) throw new Error("Server did not include SIWX extension");
+    const session = (await res.json()) as WalletSessionResponse;
+    if (session.token_type !== "DPoP" || !session.access_token) {
+      throw new Error("Server did not issue a DPoP wallet session");
+    }
+    this.session = {
+      token: session.access_token,
+      expiresAt: Date.now() + session.expires_in * 1000,
+    };
+  }
 
-    const chain = siwx.supportedChains[0];
-    const info = { ...siwx.info, chainId: chain.chainId, type: chain.type } as Parameters<typeof createSIWxPayload>[0];
+  private async paymentFetch() {
+    if (this.cachedPayFetch) return this.cachedPayFetch;
+    if (!this.walletAddress || !this.provider) throw new Error("Wallet not connected");
 
-    this.emit("auth.signing", `Signing SIWX for ${chain.chainId}...`);
-    const payload = await createSIWxPayload(info, wc);
-    const siwxHeader = encodeSIWxHeader(payload);
-    this.emit("auth.authenticated", "Wallet verified via SIWX");
+    const networks = await this.evmNetworks();
+    const firstNetwork = networks[0];
+    if (!firstNetwork) throw new Error("No EVM payment networks are available");
+    let paymentNetwork = firstNetwork;
+    const signer = toClientEvmSigner({
+      address: this.walletAddress,
+      signTypedData: (payload) =>
+        createWalletClient({
+          account: this.walletAddress!,
+          chain: paymentNetwork.chain,
+          transport: custom(this.provider!),
+        }).signTypedData({ ...payload, account: this.walletAddress! }),
+    });
 
-    // TODO: x402 v2.9.0 wrapFetchWithPayment drops onPaymentRequired hook headers
-    // on payment retries (uses original clonedRequest instead of hookRequest). Once
-    // fixed upstream, replace this with x402HTTPClient + createSIWxClientHook.
-    const authFetch: typeof fetch = (input, init) => {
-      const headers = input instanceof Request
-        ? new Headers(input.headers)
-        : new Headers(init?.headers);
-      if (!headers.has("SIGN-IN-WITH-X")) {
-        headers.set("SIGN-IN-WITH-X", siwxHeader);
-      }
+    const rpcConfig = Object.fromEntries(
+      networks
+        .filter((network) => network.rpc_url)
+        .map((network) => [network.chainId, { rpcUrl: network.rpc_url! }]),
+    );
+    const authedFetch: typeof fetch = async (input, init) => {
+      await this.ensureSession();
+      const url = input instanceof Request ? input.url : String(input);
+      const method = init?.method ?? (input instanceof Request ? input.method : "GET");
+      const headers = new Headers(input instanceof Request ? input.headers : undefined);
+      new Headers(init?.headers).forEach((value, key) => headers.set(key, value));
+      const session = this.session;
+      if (!session) throw new Error("Wallet session was not established");
+      headers.set("authorization", `DPoP ${session.token}`);
+      headers.set("dpop", await this.dpop(method, url, session.token));
       return fetch(input, { ...init, headers });
     };
 
-    const signer = toClientEvmSigner({
-      address: wallet as `0x${string}`,
-      signTypedData: (p) => wc.signTypedData(p),
-    });
-
     const client = new x402Client()
-      .register("eip155:*", new ExactEvmScheme(signer))
+      .register("eip155:*", new ExactEvmScheme(signer, rpcConfig))
       .onBeforePaymentCreation(async (ctx) => {
-        const req = ctx.selectedRequirements;
-        const usd = parseFloat((Number(req.amount) / 1e6).toFixed(6));
-        this.emit("payment.402", `$${usd} USDC | ${req.scheme} | ${req.network}`);
-        this.emit("payment.signing", "Signing EIP-712 authorization...");
+        const network = networks.find(
+          (item) => item.chain_id === ctx.selectedRequirements.network,
+        );
+        if (!network) {
+          throw new Error(
+            `Unsupported EVM payment network: ${ctx.selectedRequirements.network}`,
+          );
+        }
+        await this.switchNetwork(network);
+        paymentNetwork = network;
+        const amount = formatAtomicAmount(
+          ctx.selectedRequirements.amount,
+          ctx.selectedRequirements.extra,
+        );
+        this.emit(
+          "payment.required",
+          `Pay ${amount} on ${network.name}, please approve in your wallet`,
+        );
       })
-      .onAfterPaymentCreation(async () => {
-        this.emit("payment.signed", "Payment signed, retrying with PAYMENT-SIGNATURE...");
-      })
-      .onPaymentCreationFailure(async (ctx) => {
-        this.emit("payment.error", `Payment failed: ${ctx.error.message}`);
+      .onAfterPaymentCreation(async (ctx) => {
+        const amount = formatAtomicAmount(
+          ctx.selectedRequirements.amount,
+          ctx.selectedRequirements.extra,
+        );
+        this.emit("payment.signed", `Signed ${amount}, settling onchain`, "success");
       });
 
-    return wrapFetchWithPayment(authFetch, client);
+    this.cachedPayFetch = wrapFetchWithPayment(authedFetch, client);
+    return this.cachedPayFetch;
   }
+
+  private async evmNetworks() {
+    if (this.cachedNetworks) return this.cachedNetworks;
+    const res = await fetch(this.url(`/v1/networks?mode=${this.mode}`));
+    if (!res.ok) throw await RolloverError.from(res);
+    const networks = (await res.json()) as RolloverNetwork[];
+    this.cachedNetworks = networks.filter(
+      (network): network is EVMNetwork =>
+        network.type === "evm" &&
+        !!network.chainId &&
+        !!network.chainHex &&
+        !!network.chain &&
+        !!network.walletAdd,
+    );
+    return this.cachedNetworks;
+  }
+
+  private async switchNetwork(network: EVMNetwork) {
+    if (!this.provider) throw new Error("Wallet not connected");
+    const current = await this.provider.request<string>({ method: "eth_chainId" });
+    if (current?.toLowerCase() === network.chainHex.toLowerCase()) return;
+
+    this.emit("wallet.switching", `Switching to ${network.name}...`);
+    try {
+      await this.provider.request({
+        method: "wallet_switchEthereumChain",
+        params: [{ chainId: network.chainHex }],
+      });
+    } catch (error) {
+      if ((error as { code?: number }).code !== 4902) throw error;
+      this.emit("wallet.adding", `Adding ${network.name} to wallet...`);
+      await this.provider.request({
+        method: "wallet_addEthereumChain",
+        params: [network.walletAdd],
+      });
+    }
+
+    const next = await this.provider.request<string>({ method: "eth_chainId" });
+    if (next?.toLowerCase() !== network.chainHex.toLowerCase()) {
+      throw new Error(`Wallet did not switch to ${network.name}`);
+    }
+  }
+
+  private async ensureDPoPKey() {
+    if (this.dpopKey && this.dpopJwk) return;
+    this.dpopKey = await crypto.subtle.generateKey(
+      { name: "ECDSA", namedCurve: "P-256" },
+      false,
+      ["sign", "verify"],
+    );
+    const publicKey = await crypto.subtle.exportKey("jwk", this.dpopKey.publicKey);
+    if (publicKey.kty !== "EC" || publicKey.crv !== "P-256" || !publicKey.x || !publicKey.y) {
+      throw new Error("Failed to create DPoP public key");
+    }
+    this.dpopJwk = { kty: "EC", crv: "P-256", x: publicKey.x, y: publicKey.y };
+  }
+
+  private async dpop(method: string, rawURL: string, token?: string) {
+    await this.ensureDPoPKey();
+    if (!this.dpopKey || !this.dpopJwk) throw new Error("DPoP key was not created");
+
+    const url = new URL(rawURL);
+    url.search = "";
+    url.hash = "";
+    const claims: Record<string, string | number> = {
+      htm: method.toUpperCase(),
+      htu: url.toString(),
+      jti: crypto.randomUUID(),
+      iat: Math.floor(Date.now() / 1000),
+    };
+    if (token) {
+      claims.ath = base64url.encode(
+        new Uint8Array(
+          await crypto.subtle.digest("SHA-256", new TextEncoder().encode(token)),
+        ),
+      );
+    }
+
+    return new SignJWT(claims)
+      .setProtectedHeader({ typ: "dpop+jwt", alg: "ES256", jwk: this.dpopJwk })
+      .sign(this.dpopKey.privateKey);
+  }
+
+  private url(path: string) {
+    return path.startsWith("http") ? path : `${this.apiUrl}${path}`;
+  }
+
+  private emit(type: string, detail: string, level: RolloverEventLevel = "info") {
+    const event = { type, detail, level, timestamp: Date.now() } satisfies RolloverEvent;
+    this.events.push(event);
+    this.listeners.forEach((listener) => listener(event));
+  }
+}
+
+function formatAtomicAmount(atomic: string, extra: unknown): string {
+  const name = (extra as { name?: string } | null | undefined)?.name ?? "USDC";
+  const decimals = 6;
+  if (!atomic) return name;
+  const n = Number(atomic);
+  if (!Number.isFinite(n)) return name;
+  return `${(n / 10 ** decimals).toFixed(2)} ${name}`;
+}
+
+function shortTx(hash: string) {
+  if (hash.length < 14) return hash;
+  return `${hash.slice(0, 8)}...${hash.slice(-6)}`;
+}
+
+function paymentFailureMessage(err: RolloverError): string {
+  const code = err.code || "unknown";
+  if (code === "settlement_failed") return "Settlement failed onchain, please retry";
+  if (code === "invalid_payment") return "Payment payload was rejected by the facilitator";
+  if (code === "invalid_exact_evm_payload_authorization_value") {
+    return "Signed payment amount did not match the invoice, please retry";
+  }
+  if (err.message) return `${err.message} (${code})`;
+  return `Payment failed (${code})`;
 }

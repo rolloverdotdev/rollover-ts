@@ -1,6 +1,6 @@
-import { describe, test, expect, mock, beforeEach } from "bun:test";
+import { describe, test, expect, mock } from "bun:test";
 
-// Mock heavy external dependencies before importing Rollover
+// Mock heavy external dependencies before importing Rollover.
 mock.module("@x402/fetch", () => ({
   wrapFetchWithPayment: (_fetch: typeof fetch) => _fetch,
   x402Client: class {
@@ -13,6 +13,7 @@ mock.module("@x402/fetch", () => ({
 }));
 
 mock.module("@x402/extensions/sign-in-with-x", () => ({
+  SIGN_IN_WITH_X: "SIGN-IN-WITH-X",
   createSIWxPayload: async () => ({ signature: "0xmock" }),
   encodeSIWxHeader: () => "mock-siwx-header",
 }));
@@ -20,8 +21,15 @@ mock.module("@x402/extensions/sign-in-with-x", () => ({
 mock.module("@x402/core/http", () => ({
   decodePaymentRequiredHeader: () => ({
     extensions: {
-      "sign-in-with-x": {
-        info: { domain: "localhost", uri: "http://localhost", nonce: "abc", version: "1", issuedAt: new Date().toISOString(), expirationTime: new Date(Date.now() + 300_000).toISOString() },
+      "SIGN-IN-WITH-X": {
+        info: {
+          domain: "localhost",
+          uri: "http://localhost",
+          nonce: "abc",
+          version: "1",
+          issuedAt: new Date().toISOString(),
+          expirationTime: new Date(Date.now() + 300_000).toISOString(),
+        },
         supportedChains: [{ chainId: "eip155:84532", type: "eip191" }],
       },
     },
@@ -42,39 +50,77 @@ mock.module("viem", () => ({
   getAddress: (addr: string) => addr,
 }));
 
-mock.module("viem/chains", () => ({
-  base: { id: 8453 },
-  baseSepolia: { id: 84532 },
+mock.module("jose", () => ({
+  base64url: { encode: () => "mock-b64" },
+  SignJWT: class {
+    setProtectedHeader() { return this; }
+    async sign() { return "mock-jwt"; }
+  },
 }));
 
 import { Rollover } from "./rollover.js";
-import { RolloverError } from "./errors.js";
 import type { RolloverEvent } from "./types.js";
 
 function mockFetch(status: number, body: unknown, headers?: Record<string, string>) {
   return mock(() =>
-    Promise.resolve(new Response(JSON.stringify(body), {
-      status,
-      headers: { "Content-Type": "application/json", ...headers },
-    })),
+    Promise.resolve(
+      new Response(JSON.stringify(body), {
+        status,
+        headers: { "Content-Type": "application/json", ...headers },
+      }),
+    ),
   );
 }
 
-function createClient() {
-  return new Rollover({ apiUrl: "http://localhost:9000", orgSlug: "test-org", mode: "test" });
+function createClient(apiUrl = "http://localhost:9000") {
+  return new Rollover({ apiUrl, orgSlug: "test-org", mode: "test" });
 }
 
 describe("Rollover", () => {
-  describe("constructor and getters", () => {
-    test("starts disconnected with no wallet", () => {
+  describe("constructor", () => {
+    test("starts disconnected", () => {
       const r = createClient();
       expect(r.wallet).toBeNull();
       expect(r.isConnected).toBe(false);
       expect(r.activity).toEqual([]);
     });
+
+    test("defaults to api.rollover.dev when apiUrl is omitted", async () => {
+      const r = new Rollover({ orgSlug: "test-org", mode: "live" });
+      const calls: string[] = [];
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = mock((input: RequestInfo | URL) => {
+        calls.push(typeof input === "string" ? input : input.toString());
+        return Promise.resolve(new Response(JSON.stringify([]), { status: 200 }));
+      }) as typeof fetch;
+
+      try {
+        await r.listPlans();
+        expect(calls[0]).toStartWith("https://api.rollover.dev/v1/pricing/test-org");
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
+
+    test("trims trailing slashes from apiUrl", async () => {
+      const r = createClient("http://localhost:9000///");
+      const calls: string[] = [];
+      const originalFetch = globalThis.fetch;
+      globalThis.fetch = mock((input: RequestInfo | URL) => {
+        calls.push(typeof input === "string" ? input : input.toString());
+        return Promise.resolve(new Response(JSON.stringify([]), { status: 200 }));
+      }) as typeof fetch;
+
+      try {
+        await r.listPlans();
+        expect(calls[0]).toStartWith("http://localhost:9000/v1/pricing/test-org");
+      } finally {
+        globalThis.fetch = originalFetch;
+      }
+    });
   });
 
-  describe("event system", () => {
+  describe("events", () => {
     test("on() receives emitted events", () => {
       const r = createClient();
       const events: RolloverEvent[] = [];
@@ -83,7 +129,24 @@ describe("Rollover", () => {
       expect(events).toHaveLength(1);
       expect(events[0].type).toBe("info");
       expect(events[0].detail).toBe("test message");
+      expect(events[0].level).toBe("info");
       expect(events[0].timestamp).toBeGreaterThan(0);
+    });
+
+    test("log() accepts a level", () => {
+      const r = createClient();
+      r.log("warned", "warning");
+      expect(r.activity[0].level).toBe("warning");
+    });
+
+    test("on() returns an unsubscribe function", () => {
+      const r = createClient();
+      let count = 0;
+      const off = r.on("event", () => count++);
+      r.log("first");
+      off();
+      r.log("second");
+      expect(count).toBe(1);
     });
 
     test("activity accumulates events", () => {
@@ -94,25 +157,16 @@ describe("Rollover", () => {
       expect(r.activity[0].detail).toBe("first");
       expect(r.activity[1].detail).toBe("second");
     });
-
-    test("multiple listeners all receive events", () => {
-      const r = createClient();
-      let count = 0;
-      r.on("event", () => count++);
-      r.on("event", () => count++);
-      r.log("hello");
-      expect(count).toBe(2);
-    });
   });
 
   describe("listPlans", () => {
     test("fetches and returns plans", async () => {
       const plans = [
-        { id: "1", slug: "free", name: "Free", price_usdc: "0", billing_period: "monthly", trial_days: 0, setup_fee_usdc: "0" },
-        { id: "2", slug: "pro", name: "Pro", price_usdc: "10", billing_period: "monthly", trial_days: 0, setup_fee_usdc: "0" },
+        { id: "1", slug: "free", name: "Free", price_usdc: "0", setup_fee_usdc: "0", billing_period: "monthly", trial_days: 0 },
+        { id: "2", slug: "pro", name: "Pro", price_usdc: "10", setup_fee_usdc: "0", billing_period: "monthly", trial_days: 0 },
       ];
       const originalFetch = globalThis.fetch;
-      globalThis.fetch = mockFetch(200, plans) as any;
+      globalThis.fetch = mockFetch(200, plans) as typeof fetch;
 
       try {
         const r = createClient();
@@ -125,69 +179,18 @@ describe("Rollover", () => {
         globalThis.fetch = originalFetch;
       }
     });
-
-    test("throws on failed fetch", async () => {
-      const originalFetch = globalThis.fetch;
-      globalThis.fetch = mockFetch(500, {}) as any;
-
-      try {
-        const r = createClient();
-        await expect(r.listPlans()).rejects.toThrow("Failed to fetch plans");
-      } finally {
-        globalThis.fetch = originalFetch;
-      }
-    });
   });
 
-  describe("getSubscription", () => {
-    test("returns null on 404", async () => {
+  describe("disconnect", () => {
+    test("clears state and emits an event", () => {
       const r = createClient();
-      (r as any)._payFetch = mockFetch(404, { code: "not_found", message: "not found" });
-      const sub = await r.getSubscription();
-      expect(sub).toBeNull();
-      expect(r.activity.some((e) => e.type === "subscription.none")).toBe(true);
-    });
-
-    test("throws on other errors", async () => {
-      const r = createClient();
-      (r as any)._payFetch = mockFetch(500, { code: "internal", message: "server error" });
-      await expect(r.getSubscription()).rejects.toThrow("server error");
-    });
-  });
-
-  describe("dedupe", () => {
-    test("deduplicates concurrent calls", async () => {
-      const r = createClient();
-      let callCount = 0;
-      const sub = { id: "1", plan_id: "p1", plan_name: "Pro", wallet_address: "0x1", status: "active", period_start: "2026-01-01", period_end: "2026-02-01", cancel_at_end: false };
-      (r as any)._payFetch = mock(() => {
-        callCount++;
-        return Promise.resolve(new Response(JSON.stringify({ subscription: sub }), {
-          status: 201,
-          headers: { "Content-Type": "application/json" },
-        }));
-      });
-
-      const [a, b] = await Promise.all([r.subscribe("pro"), r.subscribe("pro")]);
-      expect(callCount).toBe(1);
-      expect(a.id).toBe(b.id);
-    });
-
-    test("allows new call after previous completes", async () => {
-      const r = createClient();
-      let callCount = 0;
-      const sub = { id: "1", plan_id: "p1", plan_name: "Pro", wallet_address: "0x1", status: "active", period_start: "2026-01-01", period_end: "2026-02-01", cancel_at_end: false };
-      (r as any)._payFetch = mock(() => {
-        callCount++;
-        return Promise.resolve(new Response(JSON.stringify({ subscription: sub }), {
-          status: 201,
-          headers: { "Content-Type": "application/json" },
-        }));
-      });
-
-      await r.subscribe("pro");
-      await r.subscribe("pro");
-      expect(callCount).toBe(2);
+      // Force internal state as if we were connected.
+      (r as unknown as { walletAddress: string }).walletAddress = "0xabc";
+      expect(r.isConnected).toBe(true);
+      r.disconnect();
+      expect(r.isConnected).toBe(false);
+      expect(r.wallet).toBeNull();
+      expect(r.activity.some((e) => e.type === "wallet.disconnected")).toBe(true);
     });
   });
 });

@@ -1,7 +1,7 @@
 {
   "name": "@rolloverdotdev/browser",
   "version": "0.1.0",
-  "description": "Browser SDK for Rollover with wallet connection, SIWX auth (CAIP-122), and x402 payments.",
+  "description": "Browser SDK for Rollover with wallet connection, SIWX wallet sessions (DPoP-bound), and x402 payments.",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -21,7 +21,11 @@
     "@x402/fetch": ">=2.9.0",
     "@x402/evm": ">=2.9.0",
     "@x402/extensions": ">=2.9.0",
+    "jose": ">=5.0.0",
     "viem": ">=2.0.0"
+  },
+  "devDependencies": {
+    "jose": "^5.9.0"
   },
   "repository": {
     "type": "git",
