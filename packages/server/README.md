@@ -49,6 +49,27 @@ const result = await ro.track({ wallet, feature: "api-calls", amount: 1 })
 
 // Track with idempotency key to prevent double-counting.
 const result = await ro.track({ wallet, feature: "api-calls", amount: 1, idempotencyKey: "order-12345" })
+
+// Check multiple features in one call, with optional per-entry amount so allowed reflects whether N units would succeed instead of just whether quota remains.
+const gate = await ro.checkBatch({
+  wallet,
+  features: [
+    { feature: "api-calls", amount: 1 },
+    { feature: "image-gen", amount: 5 },
+  ],
+})
+// gate.results[], gate.creditSummary (present when batch touches credit features)
+
+// Track multiple events in one call, with all_or_nothing rolling the whole batch back if any event would block.
+const result = await ro.trackBatch({
+  wallet,
+  events: [
+    { feature: "api-calls", amount: 1 },
+    { feature: "image-gen", amount: 5 },
+  ],
+  atomicity: "all_or_nothing",
+})
+// result.batchId groups every usage_events row written for the call
 ```
 
 ### Credits
@@ -188,7 +209,7 @@ See the [examples](../../examples) directory:
 - [pricing-page](../../examples/pricing-page) - Return plans as JSON for a pricing page, with a single API call fetching each plan and its included features
 - [usage-dashboard](../../examples/usage-dashboard) - Pull analytics stats and paginated usage events to display in an admin dashboard
 - [graceful-degradation](../../examples/graceful-degradation) - Return a helpful 429 response with usage details and an upgrade path when a wallet hits its limit
-- [multi-feature-gate](../../examples/multi-feature-gate) - Check multiple features concurrently before starting an operation that requires all of them
+- [multi-feature-gate](../../examples/multi-feature-gate) - Check and track multiple features in one call using `checkBatch` and `trackBatch`
 - [credit-topup](../../examples/credit-topup) - Monitor a wallet's credit balance and automatically grant more credits when it drops below a threshold
 - [subscriptions](../../examples/subscriptions) - Manage the full subscription lifecycle with listing, filtering, and inspection
 - [batch-usage-report](../../examples/batch-usage-report) - Query usage events for a time range with pagination and aggregate totals by feature and wallet

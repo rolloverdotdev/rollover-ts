@@ -32,6 +32,62 @@ export interface TrackResult {
   creditBalance: number;
 }
 
+export interface BatchCheckItem {
+  feature: string;
+  amount?: number;
+}
+
+export interface BatchCheckEntry {
+  feature: string;
+  allowed: boolean;
+  used?: number;
+  remaining: number;
+  limit: number;
+  creditCost?: number;
+  creditBalance?: number;
+  overLimit?: boolean;
+  errorCode?: string;
+  errorMessage?: string;
+}
+
+export interface CreditSummary {
+  required: number;
+  available: number;
+  allowed: boolean;
+}
+
+export interface BatchCheckResult {
+  wallet: string;
+  plan: string;
+  results: BatchCheckEntry[];
+  creditSummary?: CreditSummary;
+}
+
+export interface BatchTrackEvent {
+  feature: string;
+  amount: number;
+}
+
+export interface BatchTrackEntry {
+  feature: string;
+  allowed: boolean;
+  used: number;
+  remaining: number;
+  creditBalance?: number;
+  overLimit?: boolean;
+  errorCode?: string;
+  errorMessage?: string;
+}
+
+export interface BatchTrackResult {
+  wallet: string;
+  plan: string;
+  batchId: string;
+  results: BatchTrackEntry[];
+}
+
+export type Atomicity = "per_event" | "all_or_nothing";
+
 export interface CreditBalance {
   wallet: string;
   balance: number;
