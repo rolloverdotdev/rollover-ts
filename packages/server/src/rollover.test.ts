@@ -134,16 +134,16 @@ describe("track", () => {
     expect(capturedKey).toBe("key-123");
   });
 
-  test("does not send idempotency key when omitted", async () => {
-    let hasKey = false;
+  test("auto-generates idempotency key when omitted", async () => {
+    let capturedKey = "";
     mockServer((_url, init) => {
-      hasKey = "Idempotency-Key" in (init.headers as Record<string, string>);
+      capturedKey = (init.headers as Record<string, string>)["Idempotency-Key"] ?? "";
       return new Response(JSON.stringify({ allowed: true, used: 1, remaining: 99, credit_balance: 0 }));
     });
 
     const r = createClient();
     await r.track({ wallet: "0xabc", feature: "api-calls", amount: 1 });
-    expect(hasKey).toBe(false);
+    expect(capturedKey).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/);
   });
 });
 

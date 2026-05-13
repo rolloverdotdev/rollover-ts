@@ -7,7 +7,12 @@ function mockPageFn(pages: { data: string[]; total: number }[]) {
   return (opts: ListOptions): Promise<Page<string>> => {
     const page = pages[callIndex] ?? { data: [], total: 0 };
     callIndex++;
-    return Promise.resolve(page);
+    return Promise.resolve({
+      data: page.data,
+      total: page.total,
+      limit: opts.limit ?? 0,
+      offset: opts.offset ?? 0,
+    });
   };
 }
 
@@ -56,7 +61,7 @@ describe("paginate", () => {
     let capturedLimit = 0;
     const fn = (opts: ListOptions): Promise<Page<string>> => {
       capturedLimit = opts.limit ?? 0;
-      return Promise.resolve({ data: [], total: 0 });
+      return Promise.resolve({ data: [], total: 0, limit: opts.limit ?? 0, offset: opts.offset ?? 0 });
     };
 
     for await (const _ of paginate(fn)) {
